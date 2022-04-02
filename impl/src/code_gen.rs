@@ -23,11 +23,11 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 /// variables that need to be passed.
 /// field_type              resulting tokenstream
 /// ---------------------------------------------
-/// u2                      buf.read_u2().unwrap()
-/// Vec<u2>                 buf.read_u2().unwrap()
-/// MyStruct                MyStruct::read(buf, ()).unwrap()
+/// u2                      buf.read_u2()
+/// Vec<u2>                 buf.read_u2()
+/// MyStruct                MyStruct::read(buf, ())
 /// #[packetrs(ctx = "length")]
-/// MyOtherStruct           MyOtherStruct::read(buf, (length)).unwrap()
+/// MyOtherStruct           MyOtherStruct::read(buf, (length))
 fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     let read_context = if let Some(caller_context) = field.get_caller_context_param_value() {
         // TODO: we have to do the clone here so we can return an empty vec in the else case,
@@ -46,11 +46,11 @@ fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     if built_in_type {
         let read_field = format_ident!("read_{}", inner_type);
         quote! {
-            buf.#read_field().unwrap()
+            buf.#read_field()
         }
     } else {
         quote! {
-            #inner_type::read(buf, (#(#read_context),*)).unwrap()
+            #inner_type::read(buf, (#(#read_context),*))
         }
     }
 }
@@ -61,13 +61,21 @@ fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
 fn generate_field_read(field: &PacketRsField) -> TokenStream {
     let read_call = generate_read_call(field);
     let field_name = &field.name;
+    let field_ty = &field.ty;
+    let crate_name = get_crate_name();
     if let Some(ref count_param) = field.get_count_param_value() {
+        // When we have a count param, we get a Vec<Result<T>> that we need to collect as
+        // Result<Vec<T>>.
+        // TODO: anyhow or something would clean this up a bit
         quote! {
-            let #field_name = (0..#count_param).map(|_| #read_call).collect();
+            let #field_name = (0..#count_param)
+                .map(|_| #read_call)
+                .map(|r| r.map_err(|e| e.into()))
+                .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()?;
         }
     } else {
         quote! {
-            let #field_name = #read_call;
+            let #field_name = #read_call?;
         }
     }
 }
