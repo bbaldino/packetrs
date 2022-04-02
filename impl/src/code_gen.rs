@@ -74,8 +74,9 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
                 .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()?;
         }
     } else {
+        let context = field_name.as_ref().unwrap().to_string();
         quote! {
-            let #field_name = #read_call?;
+            let #field_name = #read_call.context(#context)?;
         }
     }
 }
@@ -142,6 +143,7 @@ fn generate_struct_read_body_named_fields(rs_struct: &PacketRsStruct) -> proc_ma
 
     let reads = generate_field_reads(&rs_struct.fields);
     let field_names = rs_struct.fields.iter().map(|f| f.name.as_ref().unwrap());
+    let context = rs_struct.name.to_string();
     quote! {
         #context_assignments
         #reads
@@ -173,7 +175,6 @@ fn generate_struct_read_body_unnamed_fields(
 
 pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let crate_name = get_crate_name();
-    eprintln!("Got crate name: {}", crate_name);
     let expected_context = packetrs_struct.get_required_context_param_value();
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let struct_name = &packetrs_struct.name;
@@ -182,6 +183,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     } else {
         generate_struct_read_body_unnamed_fields(packetrs_struct)
     };
+    let context = struct_name.to_string();
     quote! {
         impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #struct_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> packetrs::error::PacketRsResult<Self> {
