@@ -5,6 +5,7 @@ pub mod error;
 mod model_parse;
 mod model_types;
 pub mod packetrs_read;
+pub mod prelude;
 mod syn_helpers;
 
 use code_gen::generate_enum;
