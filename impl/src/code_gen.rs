@@ -2,7 +2,10 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 
 use crate::{
-    model_types::{are_fields_named, GetParameterValue, PacketRsField, PacketRsStruct},
+    model_types::{
+        are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
+        PacketRsStruct,
+    },
     syn_helpers::{get_ctx_type, get_ident_of_inner_type},
 };
 
@@ -74,7 +77,10 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
                 .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()?;
         }
     } else {
-        let context = field_name.as_ref().unwrap().to_string();
+        let context = field_name
+            .as_ref()
+            .expect(format!("Unable to get name of field for read {:#?}", field).as_ref())
+            .to_string();
         quote! {
             let #field_name = #read_call.context(#context)?;
         }
@@ -142,8 +148,10 @@ fn generate_struct_read_body_named_fields(rs_struct: &PacketRsStruct) -> proc_ma
         };
 
     let reads = generate_field_reads(&rs_struct.fields);
-    let field_names = rs_struct.fields.iter().map(|f| f.name.as_ref().unwrap());
-    let context = rs_struct.name.to_string();
+    let field_names = rs_struct
+        .fields
+        .iter()
+        .map(|f| f.name.as_ref().expect("Unable to get name of named field"));
     quote! {
         #context_assignments
         #reads
@@ -166,6 +174,15 @@ fn generate_struct_read_body_unnamed_fields(
             parameters: rs_struct.parameters.clone(),
         })
         .map(|f| generate_read_call(&f))
+        .enumerate()
+        // Since the unnamed fields version used generate_read_call directly, which doesn't add the
+        // trailing '?', we have to add it here
+        .map(|(i, f)| {
+            let context = format!("Reading unnamed field {} of struct {}", i, &rs_struct.name);
+            quote! {
+                #f.context(#context)?
+            }
+        })
         .collect::<Vec<proc_macro2::TokenStream>>();
 
     quote! {
@@ -183,11 +200,112 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     } else {
         generate_struct_read_body_unnamed_fields(packetrs_struct)
     };
-    let context = struct_name.to_string();
     quote! {
         impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #struct_name {
-            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> packetrs::error::PacketRsResult<Self> {
+            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #read_body
+            }
+        }
+    }.into()
+}
+
+fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> TokenStream {
+    let variant_name = variant.name;
+    let key = variant
+        .get_enum_id()
+        .expect(format!("Enum variant {} is missing 'id' attribute", variant_name).as_ref())
+        .value();
+    // TODO: this won't cover everything (like a guard on a match arm), but it's probably
+    // good enough?  See https://docs.rs/syn/latest/syn/struct.Arm.html
+    let key = syn::parse_str::<syn::Pat>(&key).expect("Unable to parse match pattern");
+
+    if are_fields_named(&variant.fields) {
+        let reads = generate_field_reads(&variant.fields);
+        let field_names = variant.fields.iter().map(|f| {
+            f.name
+                .as_ref()
+                .expect(format!("Found unnamed fields amongst named fields: {:#?}", f).as_ref())
+        });
+
+        quote! {
+            #key => {
+                #reads
+
+                Ok(#enum_name::#variant_name { #(#field_names),* })
+            }
+        }
+    } else {
+        let reads = variant
+            .fields
+            .iter()
+            // Here, we copy the parameters from the parent variant and 'pass them down' to the
+            // unnamed field, since it's convenient to be able to annotate an unnamed field this
+            // way rather than having to use a named field just to pass parameters
+            .map(|f| PacketRsField {
+                name: f.name,
+                ty: f.ty,
+                parameters: variant.parameters.clone(),
+            })
+            .map(|f| generate_read_call(&f))
+            .enumerate()
+            // Since the unnamed fields version used generate_read_call directly, which doesn't add the
+            // trailing '?', we have to add it here
+            .map(|(i, f)| {
+                let context = format!(
+                    "Reading unnamed field {} of variant {} in enum {}",
+                    i, &variant_name, &enum_name
+                );
+                quote! {
+                    #f.context(#context)?
+                }
+            })
+            .collect::<Vec<proc_macro2::TokenStream>>();
+
+        quote! {
+            #key => Ok(#enum_name::#variant_name(#(#reads),*))
+        }
+    }
+}
+
+pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
+    let crate_name = get_crate_name();
+    let expected_context = packetrs_enum.get_required_context_param_value();
+    let context_assignments = if let Some(required_ctx) = expected_context {
+        generate_context_assignments(&required_ctx)
+    } else {
+        TokenStream::new()
+    };
+    let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
+    let enum_name = &packetrs_enum.name;
+    let enum_variant_key = packetrs_enum
+        .get_enum_key()
+        .expect(format!("Enum {} is missing 'key' attribute", enum_name).as_ref())
+        .value();
+
+    // TODO: without this, we get quotes around the variant key in the match statement below.  is
+    // there a better way?
+    let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key).expect(
+        format!(
+            "Unable to parse enum key as an expression: {}",
+            enum_variant_key
+        )
+        .as_ref(),
+    );
+
+    let match_arms = packetrs_enum
+        .variants
+        .iter()
+        .map(|v| generate_match_arm(&enum_name, &v))
+        .collect::<Vec<proc_macro2::TokenStream>>();
+
+    quote! {
+        impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #enum_name {
+            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+                #context_assignments
+                match #enum_variant_key {
+                    #(#match_arms),*,
+                    _ => todo!()
+                }
             }
         }
     }.into()

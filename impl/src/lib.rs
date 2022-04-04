@@ -7,6 +7,8 @@ mod model_types;
 pub mod packetrs_read;
 mod syn_helpers;
 
+use code_gen::generate_enum;
+use model_parse::parse_enum;
 use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
@@ -28,10 +30,9 @@ pub fn derive_packetrs(item: TokenStream) -> std::result::Result<TokenStream, sy
             Ok(generate_struct(&parsed)).map_err(|e: anyhow::Error| syn::Error::new_spanned(ast, e))
         }
         syn::Data::Enum(ref e) => {
-            //let parsed = parse_enum(&ast.ident, &ast.attrs, e);
+            let parsed = parse_enum(&ast.ident, &ast.attrs, e);
             //eprintln!("Parsed enum: {:#?}", parsed);
-            //derive_enum(&parsed)
-            Ok(TokenStream::new()).map_err(|e: anyhow::Error| syn::Error::new_spanned(ast, e))
+            Ok(generate_enum(&parsed)).map_err(|e: anyhow::Error| syn::Error::new_spanned(ast, e))
         }
         _ => Err(syn::Error::new_spanned(
             ast,
