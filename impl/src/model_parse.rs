@@ -112,6 +112,7 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
         }
         "key" => Some(PacketRsAttributeParam::EnumKey(value_str.clone())),
         "id" => Some(PacketRsAttributeParam::EnumId(value_str.clone())),
+        "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
         _ => {
             // TODO: refactor this to use a spanned compiler error
             panic!("Unrecognized packetrs attribute param name: {:?}", name)

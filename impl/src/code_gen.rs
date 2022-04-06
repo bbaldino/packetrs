@@ -92,7 +92,24 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
 fn generate_field_reads(fields: &Vec<PacketRsField>) -> TokenStream {
     let field_reads = fields
         .iter()
-        .map(|f| generate_field_read(&f))
+        .map(|f| {
+            let read = generate_field_read(&f);
+            if let Some(fixed_value) = f.get_fixed_value() {
+                let field_name = &f.name;
+                let field_name_str = &f.name.as_ref().unwrap().to_string();
+                let fixed_value = syn::parse_str::<syn::Expr>(fixed_value.value().as_ref()).unwrap();
+                quote! {
+                    #read
+                    if #field_name != #fixed_value {
+                        bail!("{} value didn't match: expected {}, got {}", #field_name_str, #fixed_value, #field_name);
+                    }
+                }
+            } else {
+                quote! {
+                    #read
+                }
+            }
+        })
         .collect::<Vec<TokenStream>>();
 
     quote! {

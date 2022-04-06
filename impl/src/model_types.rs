@@ -15,6 +15,8 @@ pub(crate) enum PacketRsAttributeParam {
     // An ID of a specific enum variant that will be retrieved via the EnumKey.  Tagged on an enum
     // variant.
     EnumId(syn::LitStr),
+    // A value that a given field must equal. (use Expr?)
+    Fixed(syn::LitStr),
 }
 
 #[derive(Debug)]
@@ -79,6 +81,7 @@ pub trait GetParameterValue {
     fn get_required_context_param_value(&self) -> Option<&Vec<syn::FnArg>>;
     fn get_enum_id(&self) -> Option<&syn::LitStr>;
     fn get_enum_key(&self) -> Option<&syn::LitStr>;
+    fn get_fixed_value(&self) -> Option<&syn::LitStr>;
 }
 
 impl<T> GetParameterValue for T
@@ -116,6 +119,13 @@ where
     fn get_enum_key(&self) -> Option<&syn::LitStr> {
         self.get_parameters().iter().find_map(|p| match p {
             PacketRsAttributeParam::EnumKey(ref key) => Some(key),
+            _ => None,
+        })
+    }
+
+    fn get_fixed_value(&self) -> Option<&syn::LitStr> {
+        self.get_parameters().iter().find_map(|p| match p {
+            PacketRsAttributeParam::Fixed(ref val) => Some(val),
             _ => None,
         })
     }
