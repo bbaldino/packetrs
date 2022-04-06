@@ -41,7 +41,7 @@ fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     };
     // TODO: find some cleaner way to test if a type is a bitcursor 'built in' type
     let bitcursor_read_built_in_types: Vec<&str> = vec![
-        "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u16", "u24", "u32",
+        "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u14", "u16", "u24", "u32", "u128",
     ];
     let inner_type = get_ident_of_inner_type(&field.ty)
         .expect(format!("Unable to get ident of inner type from: {:#?}", &field.ty).as_ref());
