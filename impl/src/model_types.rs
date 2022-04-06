@@ -17,6 +17,8 @@ pub(crate) enum PacketRsAttributeParam {
     EnumId(syn::LitStr),
     // A value that a given field must equal. (use Expr?)
     Fixed(syn::LitStr),
+    // The name of a custom reader function to be used to read this type
+    CustomReader(syn::Ident),
 }
 
 #[derive(Debug)]
@@ -82,6 +84,7 @@ pub trait GetParameterValue {
     fn get_enum_id(&self) -> Option<&syn::LitStr>;
     fn get_enum_key(&self) -> Option<&syn::LitStr>;
     fn get_fixed_value(&self) -> Option<&syn::LitStr>;
+    fn get_custom_reader(&self) -> Option<&syn::Ident>;
 }
 
 impl<T> GetParameterValue for T
@@ -126,6 +129,13 @@ where
     fn get_fixed_value(&self) -> Option<&syn::LitStr> {
         self.get_parameters().iter().find_map(|p| match p {
             PacketRsAttributeParam::Fixed(ref val) => Some(val),
+            _ => None,
+        })
+    }
+
+    fn get_custom_reader(&self) -> Option<&syn::Ident> {
+        self.get_parameters().iter().find_map(|p| match p {
+            PacketRsAttributeParam::CustomReader(ref val) => Some(val),
             _ => None,
         })
     }

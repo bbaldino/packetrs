@@ -30,7 +30,9 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 /// Vec<u2>                 buf.read_u2()
 /// MyStruct                MyStruct::read(buf, ())
 /// #[packetrs(ctx = "length")]
-/// MyOtherStruct           MyOtherStruct::read(buf, (length))
+/// MyOtherStruct           MyOtherStruct::read(buf, length)
+/// #[packetrs(ctx = "length", reader = "read_my_other_struct")]
+/// MyOtherStruct           read_my_other_struct(&mut buf, length)
 fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     let read_context = if let Some(caller_context) = field.get_caller_context_param_value() {
         // TODO: we have to do the clone here so we can return an empty vec in the else case,
@@ -43,6 +45,12 @@ fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     let bitcursor_read_built_in_types: Vec<&str> = vec![
         "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u14", "u16", "u24", "u32", "u128",
     ];
+    // If we have a custom reader, use that
+    if let Some(ref custom_reader) = field.get_custom_reader() {
+        return quote! {
+            #custom_reader(buf, (#(#read_context),*))
+        };
+    }
     let inner_type = get_ident_of_inner_type(&field.ty)
         .expect(format!("Unable to get ident of inner type from: {:#?}", &field.ty).as_ref());
     let built_in_type = bitcursor_read_built_in_types.contains(&inner_type.to_string().as_ref());
@@ -66,21 +74,21 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     let field_name = &field.name;
     let field_ty = &field.ty;
     let crate_name = get_crate_name();
+    let context = field_name
+        .as_ref()
+        .expect(format!("Unable to get name of field for read {:#?}", field).as_ref())
+        .to_string();
     if let Some(ref count_param) = field.get_count_param_value() {
         // When we have a count param, we get a Vec<Result<T>> that we need to collect as
         // Result<Vec<T>>.
         // TODO: anyhow or something would clean this up a bit
         quote! {
             let #field_name = (0..#count_param)
-                .map(|_| #read_call)
+                .map(|_| #read_call.context(#context))
                 .map(|r| r.map_err(|e| e.into()))
                 .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()?;
         }
     } else {
-        let context = field_name
-            .as_ref()
-            .expect(format!("Unable to get name of field for read {:#?}", field).as_ref())
-            .to_string();
         quote! {
             let #field_name = #read_call.context(#context)?;
         }

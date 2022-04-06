@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 use crate::{
     model_types::{
         PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField, PacketRsStruct,
@@ -113,6 +115,11 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
         "key" => Some(PacketRsAttributeParam::EnumKey(value_str.clone())),
         "id" => Some(PacketRsAttributeParam::EnumId(value_str.clone())),
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
+        "reader" => {
+            let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
+                .expect("reader param is a valid ident");
+            Some(PacketRsAttributeParam::CustomReader(reader_ident))
+        }
         _ => {
             // TODO: refactor this to use a spanned compiler error
             panic!("Unrecognized packetrs attribute param name: {:?}", name)
