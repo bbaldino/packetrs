@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 use crate::{
     model_types::{
         PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField, PacketRsStruct,

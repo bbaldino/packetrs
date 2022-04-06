@@ -329,7 +329,9 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
                 #context_assignments
                 match #enum_variant_key {
                     #(#match_arms),*,
-                    _ => todo!()
+                    v @ _ => {
+                        todo!("Value of {} is not implemented", v);
+                    }
                 }
             }
         }
