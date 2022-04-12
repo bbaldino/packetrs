@@ -8,7 +8,7 @@ use crate::{
 pub(crate) fn parse_field(field: &syn::Field) -> PacketRsField {
     let parameters = parse_packetrs_attrs_from_attributes(&field.attrs);
     PacketRsField {
-        name: &field.ident,
+        name: field.ident.clone(),
         ty: &field.ty,
         parameters,
     }

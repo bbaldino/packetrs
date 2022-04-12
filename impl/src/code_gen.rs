@@ -161,8 +161,7 @@ fn generate_context_assignments(context: &Vec<syn::FnArg>) -> TokenStream {
     }
 }
 
-/// Generate the body of the packetrs::PacketRsRead::read method for a struct with named fields.
-fn generate_struct_read_body_named_fields(rs_struct: &PacketRsStruct) -> proc_macro2::TokenStream {
+fn generate_struct_read_body(rs_struct: &PacketRsStruct) -> proc_macro2::TokenStream {
     let context_assignments =
         if let Some(required_ctx) = rs_struct.get_required_context_param_value() {
             generate_context_assignments(&required_ctx)
@@ -170,46 +169,40 @@ fn generate_struct_read_body_named_fields(rs_struct: &PacketRsStruct) -> proc_ma
             proc_macro2::TokenStream::new()
         };
 
-    let reads = generate_field_reads(&rs_struct.fields);
-    let field_names = rs_struct
-        .fields
+    // If the struct has named fields, then take them directly. If not, then generate synthetic
+    // field names for each of the unnamed fields, and copy the attributes from the struct itself
+    // to make it more convenient.
+    // TODO: way to avoid the clone here?
+    let fields = if are_fields_named(&rs_struct.fields) {
+        rs_struct.fields.clone()
+    } else {
+        rs_struct
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(idx, f)| PacketRsField {
+                name: Some(format_ident!("field_{}", idx)),
+                ty: f.ty,
+                parameters: rs_struct.parameters.clone(),
+            })
+            .collect()
+    };
+    let reads = generate_field_reads(&fields);
+    let field_names = fields
         .iter()
         .map(|f| f.name.as_ref().expect("Unable to get name of named field"));
-    quote! {
-        #context_assignments
-        #reads
-        Ok(Self { #(#field_names),* })
-    }
-}
-
-fn generate_struct_read_body_unnamed_fields(
-    rs_struct: &PacketRsStruct,
-) -> proc_macro2::TokenStream {
-    let reads = rs_struct
-        .fields
-        .iter()
-        // Here, we copy the parameters from the parent struct and 'pass them down' to the
-        // unnamed field, since it's convenient to be able to annotate an unnamed field this
-        // way rather than having to use a named field just to pass parameters
-        .map(|f| PacketRsField {
-            name: f.name,
-            ty: f.ty,
-            parameters: rs_struct.parameters.clone(),
-        })
-        .map(|f| generate_read_call(&f))
-        .enumerate()
-        // Since the unnamed fields version used generate_read_call directly, which doesn't add the
-        // trailing '?', we have to add it here
-        .map(|(i, f)| {
-            let context = format!("Reading unnamed field {} of struct {}", i, &rs_struct.name);
-            quote! {
-                #f.context(#context)?
-            }
-        })
-        .collect::<Vec<proc_macro2::TokenStream>>();
-
-    quote! {
-        Ok(Self(#(#reads),*))
+    if are_fields_named(&rs_struct.fields) {
+        quote! {
+            #context_assignments
+            #reads
+            Ok(Self { #(#field_names),* })
+        }
+    } else {
+        quote! {
+            #context_assignments
+            #reads
+            Ok(Self(#(#field_names),*))
+        }
     }
 }
 
@@ -218,11 +211,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let expected_context = packetrs_struct.get_required_context_param_value();
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let struct_name = &packetrs_struct.name;
-    let read_body = if are_fields_named(&packetrs_struct.fields) {
-        generate_struct_read_body_named_fields(packetrs_struct)
-    } else {
-        generate_struct_read_body_unnamed_fields(packetrs_struct)
-    };
+    let read_body = generate_struct_read_body(&packetrs_struct);
     quote! {
         impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #struct_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
@@ -265,7 +254,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
             // unnamed field, since it's convenient to be able to annotate an unnamed field this
             // way rather than having to use a named field just to pass parameters
             .map(|f| PacketRsField {
-                name: f.name,
+                name: f.name.clone(),
                 ty: f.ty,
                 parameters: variant.parameters.clone(),
             })

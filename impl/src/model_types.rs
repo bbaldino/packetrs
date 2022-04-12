@@ -21,9 +21,9 @@ pub(crate) enum PacketRsAttributeParam {
     CustomReader(syn::Ident),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PacketRsField<'a> {
-    pub name: &'a Option<syn::Ident>,
+    pub name: Option<syn::Ident>,
     pub ty: &'a syn::Type,
     pub parameters: Vec<PacketRsAttributeParam>,
 }
