@@ -191,18 +191,22 @@ fn generate_struct_read_body(rs_struct: &PacketRsStruct) -> proc_macro2::TokenSt
     let field_names = fields
         .iter()
         .map(|f| f.name.as_ref().expect("Unable to get name of named field"));
-    if are_fields_named(&rs_struct.fields) {
+    let context_assignments_and_field_reads = quote! {
+        #context_assignments
+        #reads
+    };
+    let creation = if are_fields_named(&rs_struct.fields) {
         quote! {
-            #context_assignments
-            #reads
             Ok(Self { #(#field_names),* })
         }
     } else {
         quote! {
-            #context_assignments
-            #reads
             Ok(Self(#(#field_names),*))
         }
+    };
+    quote! {
+        #context_assignments_and_field_reads
+        #creation
     }
 }
 
@@ -256,7 +260,6 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
         quote! {
             #key => {
                 #reads
-
                 Ok(#enum_name::#variant_name { #(#field_names),* })
             }
         }
@@ -264,7 +267,6 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
         quote! {
             #key => {
                 #reads
-
                 Ok(#enum_name::#variant_name(#(#field_names),*))
             }
         }
