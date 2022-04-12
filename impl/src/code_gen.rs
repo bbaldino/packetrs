@@ -34,13 +34,11 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 /// #[packetrs(ctx = "length", reader = "read_my_other_struct")]
 /// MyOtherStruct           read_my_other_struct(&mut buf, length)
 fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
-    let read_context = if let Some(caller_context) = field.get_caller_context_param_value() {
-        // TODO: we have to do the clone here so we can return an empty vec in the else case,
-        // otherwise we can't return a reference to a temporary vector.  is there a better way?
-        caller_context.clone()
-    } else {
-        Vec::new()
-    };
+    // TODO: we have to do the clone here so we can return an empty vec in the else case,
+    // otherwise we can't return a reference to a temporary vector.  is there a better way?
+    let read_context = field
+        .get_caller_context_param_value()
+        .map_or(Vec::new(), |c| c.clone());
     // TODO: find some cleaner way to test if a type is a bitcursor 'built in' type
     let bitcursor_read_built_in_types: Vec<&str> = vec![
         "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u14", "u16", "u24", "u32", "u128",
