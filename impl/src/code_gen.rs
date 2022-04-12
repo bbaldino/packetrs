@@ -231,14 +231,28 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
     // good enough?  See https://docs.rs/syn/latest/syn/struct.Arm.html
     let key = syn::parse_str::<syn::Pat>(&key).expect("Unable to parse match pattern");
 
-    if are_fields_named(&variant.fields) {
-        let reads = generate_field_reads(&variant.fields);
-        let field_names = variant.fields.iter().map(|f| {
-            f.name
-                .as_ref()
-                .expect(format!("Found unnamed fields amongst named fields: {:#?}", f).as_ref())
-        });
+    let fields = if are_fields_named(&variant.fields) {
+        variant.fields.clone()
+    } else {
+        variant
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(idx, f)| PacketRsField {
+                name: Some(format_ident!("field_{}", idx)),
+                ty: f.ty,
+                parameters: variant.parameters.clone(),
+            })
+            .collect()
+    };
 
+    let reads = generate_field_reads(&fields);
+    let field_names = fields.iter().map(|f| {
+        f.name
+            .as_ref()
+            .expect(format!("Found unnamed fields amongst named fields: {:#?}", f).as_ref())
+    });
+    if are_fields_named(&variant.fields) {
         quote! {
             #key => {
                 #reads
@@ -247,34 +261,12 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
             }
         }
     } else {
-        let reads = variant
-            .fields
-            .iter()
-            // Here, we copy the parameters from the parent variant and 'pass them down' to the
-            // unnamed field, since it's convenient to be able to annotate an unnamed field this
-            // way rather than having to use a named field just to pass parameters
-            .map(|f| PacketRsField {
-                name: f.name.clone(),
-                ty: f.ty,
-                parameters: variant.parameters.clone(),
-            })
-            .map(|f| generate_read_call(&f))
-            .enumerate()
-            // Since the unnamed fields version used generate_read_call directly, which doesn't add the
-            // trailing '?', we have to add it here
-            .map(|(i, f)| {
-                let context = format!(
-                    "Reading unnamed field {} of variant {} in enum {}",
-                    i, &variant_name, &enum_name
-                );
-                quote! {
-                    #f.context(#context)?
-                }
-            })
-            .collect::<Vec<proc_macro2::TokenStream>>();
-
         quote! {
-            #key => Ok(#enum_name::#variant_name(#(#reads),*))
+            #key => {
+                #reads
+
+                Ok(#enum_name::#variant_name(#(#field_names),*))
+            }
         }
     }
 }
