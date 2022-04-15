@@ -256,7 +256,13 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
             .as_ref()
             .expect(format!("Found unnamed fields amongst named fields: {:#?}", f).as_ref())
     });
-    if are_fields_named(&variant.fields) {
+    if variant.fields.is_empty() {
+        quote! {
+            #key => {
+                Ok(#enum_name::#variant_name)
+            }
+        }
+    } else if are_fields_named(&variant.fields) {
         quote! {
             #key => {
                 #reads
