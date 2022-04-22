@@ -6,7 +6,7 @@ use crate::{
         are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
     },
-    syn_helpers::{get_ctx_type, get_ident_of_inner_type},
+    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection},
 };
 
 pub(crate) fn get_crate_name() -> syn::Ident {
@@ -21,34 +21,14 @@ pub(crate) fn get_crate_name() -> syn::Ident {
     syn::Ident::new(&crate_name, Span::call_site())
 }
 
-/// Given a field, generate the code that will be used to read this field from a BitCursor.
-/// It will generate the call to read the value from the buffer, taking into account any ctx
-/// variables that need to be passed.
-/// field_type              resulting tokenstream
-/// ---------------------------------------------
-/// u2                      buf.read_u2()
-/// Vec<u2>                 buf.read_u2()
-/// MyStruct                MyStruct::read(buf, ())
-/// #[packetrs(ctx = "length")]
-/// MyOtherStruct           MyOtherStruct::read(buf, length)
-/// #[packetrs(ctx = "length", reader = "read_my_other_struct")]
-/// MyOtherStruct           read_my_other_struct(&mut buf, length)
-fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
-    // TODO: we have to do the clone here so we can return an empty vec in the else case,
-    // otherwise we can't return a reference to a temporary vector.  is there a better way?
-    let read_context = field
-        .get_caller_context_param_value()
-        .map_or(Vec::new(), |c| c.clone());
+/// Based on whether the 'inner' type of the given field (i.e. the type that will actually be read
+/// from the buffer) is 'built-in' or not (from BitCursor's perspective), generate and return the
+/// call to read the value from a buffer.
+fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> TokenStream {
     // TODO: find some cleaner way to test if a type is a bitcursor 'built in' type
     let bitcursor_read_built_in_types: Vec<&str> = vec![
         "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u14", "u16", "u24", "u32", "u128",
     ];
-    // If we have a custom reader, use that
-    if let Some(ref custom_reader) = field.get_custom_reader() {
-        return quote! {
-            #custom_reader(buf, (#(#read_context),*))
-        };
-    }
     let inner_type = get_ident_of_inner_type(&field.ty)
         .expect(format!("Unable to get ident of inner type from: {:#?}", &field.ty).as_ref());
     let built_in_type = bitcursor_read_built_in_types.contains(&inner_type.to_string().as_ref());
@@ -64,32 +44,66 @@ fn generate_read_call(field: &PacketRsField) -> proc_macro2::TokenStream {
     }
 }
 
-/// Given a PacketRsField, return a TokenStream that will take care of reading the value from the
-/// buffer into a variable correctly.  Takes into account fields with a 'count' parameter that need
-/// to be read into a Vec.
 fn generate_field_read(field: &PacketRsField) -> TokenStream {
-    let read_call = generate_read_call(field);
+    let crate_name = get_crate_name();
     let field_name = &field.name;
     let field_ty = &field.ty;
-    let crate_name = get_crate_name();
-    let context = field_name
+    let error_context = field_name
         .as_ref()
-        .expect(format!("Unable to get name of field for read {:#?}", field).as_ref())
+        .expect(format!("Unable to get name of field for error_context {:#?}", field).as_ref())
         .to_string();
-    if let Some(ref count_param) = field.get_count_param_value() {
-        // When we have a count param, we get a Vec<Result<T>> that we need to collect as
-        // Result<Vec<T>>.
-        // TODO: anyhow or something would clean this up a bit
+
+    // Generate the context assignments, if there are any.
+    // TODO: we have to do the clone here so we can return an empty vec in the else case,
+    // otherwise we can't return a reference to a temporary vector.  is there a better way?
+    let read_context = field
+        .get_caller_context_param_value()
+        .map_or(Vec::new(), |c| c.clone());
+
+    let custom_reader = field.get_custom_reader();
+    let count_param = field.get_count_param_value();
+
+    let read_call = if let Some(ref custom_reader_value) = custom_reader {
         quote! {
-            let #field_name = (0..#count_param)
-                .map(|_| #read_call.context(#context))
-                .map(|r| r.map_err(|e| e.into()))
-                .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()?;
+            #custom_reader_value(buf, (#(#read_context),*))
         }
     } else {
-        quote! {
-            let #field_name = #read_call.context(#context)?;
+        let field_read_call = generate_read_call(&field, &read_context);
+        if let Some(ref count_param_value) = count_param {
+            quote! {
+                (0..#count_param_value)
+                    .map(|_| #field_read_call)
+                    .map(|r| r.map_err(|e| e.into()))
+                    .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()
+            }
+        } else {
+            if is_collection(field_ty) {
+                panic!(
+                    "Field {:?} is a collection: either a count or custom_reader param is required",
+                    field_name
+                );
+            }
+            quote! {
+                #field_read_call
+            }
         }
+    };
+
+    // If there is a fixed value param, generate the assertion
+    let fixed_value_assertion = if let Some(fixed_value) = field.get_fixed_value() {
+        let field_name_str = field_name.as_ref().unwrap().to_string();
+        let fixed_value = syn::parse_str::<syn::Expr>(fixed_value.value().as_ref()).unwrap();
+        quote! {
+            if #field_name != #fixed_value {
+                bail!("{} value didn't match: expected {}, got {}", #field_name_str, #fixed_value, #field_name);
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+    quote! {
+        let #field_name = #read_call.context(#error_context)?;
+        #fixed_value_assertion
     }
 }
 
@@ -98,24 +112,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
 fn generate_field_reads(fields: &Vec<PacketRsField>) -> TokenStream {
     let field_reads = fields
         .iter()
-        .map(|f| {
-            let read = generate_field_read(&f);
-            if let Some(fixed_value) = f.get_fixed_value() {
-                let field_name = &f.name;
-                let field_name_str = &f.name.as_ref().unwrap().to_string();
-                let fixed_value = syn::parse_str::<syn::Expr>(fixed_value.value().as_ref()).unwrap();
-                quote! {
-                    #read
-                    if #field_name != #fixed_value {
-                        bail!("{} value didn't match: expected {}, got {}", #field_name_str, #fixed_value, #field_name);
-                    }
-                }
-            } else {
-                quote! {
-                    #read
-                }
-            }
-        })
+        .map(|f| generate_field_read(&f))
         .collect::<Vec<TokenStream>>();
 
     quote! {

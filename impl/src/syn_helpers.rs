@@ -131,3 +131,15 @@ pub(crate) fn get_ident_of_inner_type(ty: &syn::Type) -> Option<&syn::Ident> {
     }
     None
 }
+
+/// Return true if the given type is considered to be a "collection".
+pub(crate) fn is_collection(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(ref tp) = ty {
+        // We can't use path.get_ident here, because it doesn't work on a path whose first value
+        // has arguments.
+        if !tp.path.segments.is_empty() {
+            return tp.path.segments[0].ident == "Vec";
+        }
+    };
+    false
+}

@@ -126,7 +126,7 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
 }
 
 fn parse_packetrs_param(meta: &syn::NestedMeta) -> Option<PacketRsAttributeParam> {
-    //eprintln!("parsking packetrs param: {:#?}", meta);
+    //eprintln!("parsing packetrs param: {:#?}", meta);
     if let syn::NestedMeta::Meta(ref m) = meta {
         if let syn::Meta::NameValue(ref nv) = m {
             return parse_packetrs_namevalue_param(&nv);
