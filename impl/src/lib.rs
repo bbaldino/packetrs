@@ -20,7 +20,7 @@ pub use ::bitcursor::*;
 use crate::{code_gen::generate_struct, model_parse::parse_struct};
 
 #[doc(hidden)]
-pub fn derive_packetrs(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {
+pub fn derive_packetrs_read(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {
     //pub fn derive_packetrs(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {
     let ast: DeriveInput = syn::parse2(item)?;
     //println!("got ast: {:#?}", ast);
