@@ -5,7 +5,6 @@ pub mod error;
 mod model_parse;
 mod model_types;
 pub mod packetrs_read;
-pub mod prelude;
 mod syn_helpers;
 
 use code_gen::generate_enum;
@@ -13,15 +12,14 @@ use model_parse::parse_enum;
 use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
-//pub use ::anyhow::{Context, Error, Result};
 pub use ::anyhow::*;
 pub use ::bitcursor::*;
+pub use self::ux;
 
 use crate::{code_gen::generate_struct, model_parse::parse_struct};
 
 #[doc(hidden)]
 pub fn derive_packetrs_read(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {
-    //pub fn derive_packetrs(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {
     let ast: DeriveInput = syn::parse2(item)?;
     //println!("got ast: {:#?}", ast);
     match ast.data {

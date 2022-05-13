@@ -25,22 +25,10 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 /// from the buffer) is 'built-in' or not (from BitCursor's perspective), generate and return the
 /// call to read the value from a buffer.
 fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> TokenStream {
-    // TODO: find some cleaner way to test if a type is a bitcursor 'built in' type
-    let bitcursor_read_built_in_types: Vec<&str> = vec![
-        "bool", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u14", "u16", "u24", "u32", "u128",
-    ];
     let inner_type = get_ident_of_inner_type(&field.ty)
         .expect(format!("Unable to get ident of inner type from: {:#?}", &field.ty).as_ref());
-    let built_in_type = bitcursor_read_built_in_types.contains(&inner_type.to_string().as_ref());
-    if built_in_type {
-        let read_field = format_ident!("read_{}", inner_type);
-        quote! {
-            buf.#read_field()
-        }
-    } else {
-        quote! {
-            #inner_type::read(buf, (#(#read_context),*))
-        }
+    quote! {
+        #inner_type::read(buf, (#(#read_context),*))
     }
 }
 
@@ -214,7 +202,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let struct_name = &packetrs_struct.name;
     let read_body = generate_struct_read_body(&packetrs_struct);
     quote! {
-        impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #struct_name {
+        impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #read_body
             }
@@ -308,7 +296,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
         .collect::<Vec<proc_macro2::TokenStream>>();
 
     quote! {
-        impl ::#crate_name::packetrs_read::PacketRsRead<#ctx_type> for #enum_name {
+        impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 match #enum_variant_key {
