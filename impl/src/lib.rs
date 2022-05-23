@@ -13,7 +13,7 @@ use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
 pub use ::anyhow::*;
-pub use ::bitcursor::*;
+pub use ::bit_cursor::*;
 pub use self::ux;
 
 use crate::{code_gen::generate_struct, model_parse::parse_struct};

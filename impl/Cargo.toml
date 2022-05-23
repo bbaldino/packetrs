@@ -9,6 +9,6 @@ edition = "2021"
 syn = { version = "1", features = ["full", "extra-traits"] }
 quote = "1"
 proc-macro2 = "1"
-bitcursor = { path = "../../bitcursor" }
+bit-cursor = "0.1.0"
 proc-macro-crate = "1.1.3"
 anyhow = "1.0.56"

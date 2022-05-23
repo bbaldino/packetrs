@@ -1,4 +1,4 @@
-use bitcursor::{bitcursor::BitCursor, ux::*, bit_read::BitRead};
+use bit_cursor::{bitcursor::BitCursor, ux::*, bit_read::BitRead};
 
 use crate::error::PacketRsResult;
 
