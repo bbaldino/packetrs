@@ -9,7 +9,7 @@ description = "Macro-based struct serialization/deserialization"
 
 [dependencies]
 packetrs-macro = { version = "=0.1.0", path = "macro" }
-packetrs-impl = { version = "=0.1.0", path = "impl" }
+packetrs-impl = { version = "=0.2.0", path = "impl" }
 
 [workspace]
 members = [".", "impl", "macro"]
