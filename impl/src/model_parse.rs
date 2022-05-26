@@ -113,6 +113,11 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
         "key" => Some(PacketRsAttributeParam::EnumKey(value_str.clone())),
         "id" => Some(PacketRsAttributeParam::EnumId(value_str.clone())),
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
+        "assert" => {
+            let expr = syn::parse_str::<syn::Expr>(&value_str.value())
+                .expect("Error parsing assert as expression");
+            Some(PacketRsAttributeParam::Assert(expr))
+        },
         "reader" => {
             let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
                 .expect("reader param is a valid ident");

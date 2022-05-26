@@ -89,9 +89,24 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     } else {
         TokenStream::new()
     };
+    // If there is an assert expression, generate the assertion
+    let assertion = if let Some(assertion) = field.get_assert() {
+        let field_name_str = field_name.as_ref().unwrap().to_string();
+        let assertion_str = quote! { #assertion }.to_string();
+        quote! {
+            let assert_func = #assertion;
+            if !assert_func(#field_name) {
+                bail!("value of field '{}' ({}) didn't pass assertion: {}", #field_name_str, #field_name, #assertion_str);
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+
     quote! {
         let #field_name = #read_call.context(#error_context)?;
         #fixed_value_assertion
+        #assertion
     }
 }
 
