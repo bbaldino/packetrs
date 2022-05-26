@@ -25,8 +25,8 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 /// from the buffer) is 'built-in' or not (from BitCursor's perspective), generate and return the
 /// call to read the value from a buffer.
 fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> TokenStream {
-    let inner_type = get_ident_of_inner_type(&field.ty)
-        .expect(format!("Unable to get ident of inner type from: {:#?}", &field.ty).as_ref());
+    let inner_type = get_ident_of_inner_type(field.ty)
+        .unwrap_or_else(|| panic!("Unable to get ident of inner type from: {:#?}", &field.ty));
     quote! {
         #inner_type::read(buf, (#(#read_context),*))
     }
@@ -38,7 +38,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     let field_ty = &field.ty;
     let error_context = field_name
         .as_ref()
-        .expect(format!("Unable to get name of field for error_context {:#?}", field).as_ref())
+        .unwrap_or_else(|| panic!("Unable to get name of field for error_context {:#?}", field))
         .to_string();
 
     // Generate the context assignments, if there are any.
@@ -56,7 +56,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
             #custom_reader_value(buf, (#(#read_context),*))
         }
     } else {
-        let field_read_call = generate_read_call(&field, &read_context);
+        let field_read_call = generate_read_call(field, &read_context);
         if let Some(ref count_param_value) = count_param {
             quote! {
                 (0..#count_param_value)
@@ -112,10 +112,10 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
 
 /// Return a proc_macro2::TokenStream that includes local assignments for the read value of each of
 /// the given fields.
-fn generate_field_reads(fields: &Vec<PacketRsField>) -> TokenStream {
+fn generate_field_reads(fields: &[PacketRsField]) -> TokenStream {
     let field_reads = fields
         .iter()
-        .map(|f| generate_field_read(&f))
+        .map(generate_field_read)
         .collect::<Vec<TokenStream>>();
 
     quote! {
@@ -135,7 +135,7 @@ fn generate_field_reads(fields: &Vec<PacketRsField>) -> TokenStream {
 ///  )
 /// But for some reason parse isn't implemented for syn::Local, so for now just returning a
 /// TokenStream instead
-fn generate_context_assignments(context: &Vec<syn::FnArg>) -> TokenStream {
+fn generate_context_assignments(context: &[syn::FnArg]) -> TokenStream {
     // If there's only a single context argument, then it won't be stored in a type so we'll assign
     // it directly
     if context.len() == 1 {
@@ -164,7 +164,7 @@ fn generate_context_assignments(context: &Vec<syn::FnArg>) -> TokenStream {
 fn generate_struct_read_body(rs_struct: &PacketRsStruct) -> proc_macro2::TokenStream {
     let context_assignments =
         if let Some(required_ctx) = rs_struct.get_required_context_param_value() {
-            generate_context_assignments(&required_ctx)
+            generate_context_assignments(required_ctx)
         } else {
             proc_macro2::TokenStream::new()
         };
@@ -215,14 +215,14 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let expected_context = packetrs_struct.get_required_context_param_value();
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let struct_name = &packetrs_struct.name;
-    let read_body = generate_struct_read_body(&packetrs_struct);
+    let read_body = generate_struct_read_body(packetrs_struct);
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #read_body
             }
         }
-    }.into()
+    }
 }
 
 fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> TokenStream {
@@ -230,7 +230,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
     let variant_name_str = variant_name.to_string();
     let key = variant
         .get_enum_id()
-        .expect(format!("Enum variant {} is missing 'id' attribute", variant_name).as_ref())
+        .unwrap_or_else(|| panic!("Enum variant {} is missing 'id' attribute", variant_name))
         .value();
     // TODO: this won't cover everything (like a guard on a match arm), but it's probably
     // good enough?  See https://docs.rs/syn/latest/syn/struct.Arm.html
@@ -255,7 +255,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
     let field_names = fields.iter().map(|f| {
         f.name
             .as_ref()
-            .expect(format!("Found unnamed fields amongst named fields: {:#?}", f).as_ref())
+            .unwrap_or_else(|| panic!("Found unnamed fields amongst named fields: {:#?}", f))
     });
     if variant.fields.is_empty() {
         quote! {
@@ -290,7 +290,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     let crate_name = get_crate_name();
     let expected_context = packetrs_enum.get_required_context_param_value();
     let context_assignments = if let Some(required_ctx) = expected_context {
-        generate_context_assignments(&required_ctx)
+        generate_context_assignments(required_ctx)
     } else {
         TokenStream::new()
     };
@@ -298,23 +298,18 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     let enum_name = &packetrs_enum.name;
     let enum_variant_key = packetrs_enum
         .get_enum_key()
-        .expect(format!("Enum {} is missing 'key' attribute", enum_name).as_ref())
+        .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name))
         .value();
 
     // TODO: without this, we get quotes around the variant key in the match statement below.  is
     // there a better way?
-    let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key).expect(
-        format!(
-            "Unable to parse enum key as an expression: {}",
-            enum_variant_key
-        )
-        .as_ref(),
-    );
+    let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key)
+        .unwrap_or_else(|e| panic!("Unable to parse enum key as an expression: {}: {}", enum_variant_key, e));
 
     let match_arms = packetrs_enum
         .variants
         .iter()
-        .map(|v| generate_match_arm(&enum_name, &v))
+        .map(|v| generate_match_arm(enum_name, v))
         .collect::<Vec<proc_macro2::TokenStream>>();
 
     quote! {
@@ -329,5 +324,5 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
                 }
             }
         }
-    }.into()
+    }
 }

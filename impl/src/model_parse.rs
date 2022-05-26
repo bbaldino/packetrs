@@ -16,7 +16,7 @@ pub(crate) fn parse_field(field: &syn::Field) -> PacketRsField {
 
 pub(crate) fn parse_struct<'a, 'b>(
     name: &'a syn::Ident,
-    attrs: &'a Vec<syn::Attribute>,
+    attrs: &'a [syn::Attribute],
     struct_data: &'a syn::DataStruct,
 ) -> PacketRsStruct<'b>
 where
@@ -26,7 +26,7 @@ where
     let fields = struct_data
         .fields
         .iter()
-        .map(|field| parse_field(&field))
+        .map(parse_field)
         .collect::<Vec<PacketRsField>>();
 
     PacketRsStruct {
@@ -36,13 +36,13 @@ where
     }
 }
 
-pub(crate) fn parse_variant<'a>(variant: &syn::Variant) -> PacketRsEnumVariant {
+pub(crate) fn parse_variant(variant: &syn::Variant) -> PacketRsEnumVariant {
     let name = &variant.ident;
     let parameters = parse_packetrs_attrs_from_attributes(&variant.attrs);
     let fields = variant
         .fields
         .iter()
-        .map(|field| parse_field(&field))
+        .map(parse_field)
         .collect::<Vec<PacketRsField>>();
 
     PacketRsEnumVariant {
@@ -54,7 +54,7 @@ pub(crate) fn parse_variant<'a>(variant: &syn::Variant) -> PacketRsEnumVariant {
 
 pub(crate) fn parse_enum<'a, 'b>(
     name: &'a syn::Ident,
-    attrs: &'a Vec<syn::Attribute>,
+    attrs: &'a [syn::Attribute],
     enum_data: &'a syn::DataEnum,
 ) -> PacketRsEnum<'b>
 where
@@ -64,7 +64,7 @@ where
     let variants = enum_data
         .variants
         .iter()
-        .map(|variant| parse_variant(&variant))
+        .map(parse_variant)
         .collect::<Vec<PacketRsEnumVariant>>();
 
     PacketRsEnum {
@@ -78,7 +78,7 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
     let name = nv
         .path
         .get_ident()
-        .expect(format!("Couldn't get ident from MetaNameValue: {:#?}", nv).as_ref());
+        .unwrap_or_else(|| panic!("Couldn't get ident from MetaNameValue: {:#?}", nv));
     let value_str = match &nv.lit {
         syn::Lit::Str(ref lit_str) => lit_str,
         _ => panic!(
@@ -99,14 +99,14 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             // to the read method.  Split it, parse each as an Expr, and collect them to a Vec.
             let exprs = value_str
                 .value()
-                .split(",")
-                .map(|e| syn::parse_str::<syn::Expr>(e))
+                .split(',')
+                .map(syn::parse_str::<syn::Expr>)
                 .collect::<Result<Vec<syn::Expr>, syn::Error>>()
                 .expect("Error parsing a context arg as an expression");
             Some(PacketRsAttributeParam::CallerContext(exprs))
         }
         "required_ctx" => {
-            let args = parse_fn_args_from_lit_str(&value_str)
+            let args = parse_fn_args_from_lit_str(value_str)
                 .expect("Error parsing required context args");
             Some(PacketRsAttributeParam::RequiredContext(args))
         }
@@ -134,7 +134,7 @@ fn parse_packetrs_param(meta: &syn::NestedMeta) -> Option<PacketRsAttributeParam
     //eprintln!("parsing packetrs param: {:#?}", meta);
     if let syn::NestedMeta::Meta(ref m) = meta {
         if let syn::Meta::NameValue(ref nv) = m {
-            return parse_packetrs_namevalue_param(&nv);
+            parse_packetrs_namevalue_param(nv)
         } else {
             panic!("Packetrs attr param that wasn't a NameValue: {:?}", m);
         }
@@ -180,11 +180,11 @@ fn parse_packetrs_attrs(attr: &syn::Attribute) -> Vec<PacketRsAttributeParam> {
 }
 
 fn parse_packetrs_attrs_from_attributes(
-    attrs: &Vec<syn::Attribute>,
+    attrs: &[syn::Attribute],
 ) -> Vec<PacketRsAttributeParam> {
-    if let Some(packetrs_attr) = get_attr("packetrs", &attrs) {
-        return parse_packetrs_attrs(packetrs_attr);
+    if let Some(packetrs_attr) = get_attr("packetrs", attrs) {
+        parse_packetrs_attrs(packetrs_attr)
     } else {
-        return Vec::new();
+        Vec::new()
     }
 }

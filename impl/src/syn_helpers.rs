@@ -8,7 +8,7 @@ pub(crate) fn parse_fn_args_from_lit_str(
 ) -> Result<Vec<syn::FnArg>, syn::Error> {
     req_ctx
         .value()
-        .split(",")
+        .split(',')
         .map(|s| syn::LitStr::new(s, req_ctx.span()))
         .map(|ls| ls.parse::<syn::FnArg>())
         .collect::<Result<Vec<syn::FnArg>, syn::Error>>()
@@ -18,7 +18,7 @@ pub(crate) fn parse_fn_args_from_lit_str(
 /// one is present.
 pub(crate) fn get_attr<'a>(
     attr_name: &str,
-    attrs: &'a Vec<syn::Attribute>,
+    attrs: &'a[syn::Attribute],
 ) -> Option<&'a syn::Attribute> {
     for attr in attrs {
         if let Ok(node) = attr.parse_meta() {
@@ -52,12 +52,12 @@ pub(crate) fn get_attr<'a>(
 
 pub(crate) fn get_var_type_from_fn_arg(fn_arg: &syn::FnArg) -> Option<&syn::Type> {
     match fn_arg {
-        syn::FnArg::Typed(syn::PatType { ty, .. }) => Some(&ty),
+        syn::FnArg::Typed(syn::PatType { ty, .. }) => Some(ty),
         _ => None,
     }
 }
 
-fn get_type_ident<'a>(ty: &'a syn::Type) -> Option<&'a syn::Ident> {
+fn get_type_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     let type_path = match ty {
         syn::Type::Path(p) => p,
         _ => {
@@ -81,25 +81,25 @@ pub(crate) fn get_ctx_type(
     if let Some(ctx) = expected_context {
         let types = ctx
             .iter()
-            .filter_map(|arg| get_var_type_from_fn_arg(arg))
+            .filter_map(get_var_type_from_fn_arg)
             .collect::<Vec<&syn::Type>>();
         if types.len() == 1 {
-            return syn::parse::<syn::Type>(
+            syn::parse::<syn::Type>(
                 quote! {
                     #(#types)*
                 }
                 .into(),
-            );
+            )
         } else {
-            return syn::parse::<syn::Type>(
+            syn::parse::<syn::Type>(
                 quote! {
                     (#(#types),*)
                 }
                 .into(),
-            );
+            )
         }
     } else {
-        return syn::parse_str::<syn::Type>("()");
+        syn::parse_str::<syn::Type>("()")
     }
 }
 

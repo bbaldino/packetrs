@@ -151,6 +151,6 @@ where
     }
 }
 
-pub(crate) fn are_fields_named(fields: &Vec<PacketRsField<'_>>) -> bool {
+pub(crate) fn are_fields_named(fields: &[PacketRsField<'_>]) -> bool {
     fields.iter().any(|f| f.name.is_some())
 }
