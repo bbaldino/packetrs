@@ -227,6 +227,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 
 fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> TokenStream {
     let variant_name = variant.name;
+    let variant_name_str = variant_name.to_string();
     let key = variant
         .get_enum_id()
         .expect(format!("Enum variant {} is missing 'id' attribute", variant_name).as_ref())
@@ -259,21 +260,27 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
     if variant.fields.is_empty() {
         quote! {
             #key => {
-                Ok(#enum_name::#variant_name)
+                (|| {
+                    Ok(#enum_name::#variant_name)
+                })().context(#variant_name_str)
             }
         }
     } else if are_fields_named(&variant.fields) {
         quote! {
             #key => {
-                #reads
-                Ok(#enum_name::#variant_name { #(#field_names),* })
+                (|| {
+                    #reads
+                    Ok(#enum_name::#variant_name { #(#field_names),* })
+                })().context(#variant_name_str)
             }
         }
     } else {
         quote! {
             #key => {
-                #reads
-                Ok(#enum_name::#variant_name(#(#field_names),*))
+                (|| {
+                    #reads
+                    Ok(#enum_name::#variant_name(#(#field_names),*))
+                })().context(#variant_name_str)
             }
         }
     }
