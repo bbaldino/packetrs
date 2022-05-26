@@ -8,7 +8,7 @@ description = "Macro-based struct serialization/deserialization"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-packetrs-macro = { version = "=0.3.0", path = "macro" }
+packetrs-macro = { version = "=0.4.0", path = "macro" }
 packetrs-impl = { version = "=0.4.0", path = "impl" }
 
 [workspace]
