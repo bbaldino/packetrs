@@ -15,9 +15,11 @@ macro_rules! packetrs_read_builtin {
                 Ok(<$type as BitRead>::bit_read(buf)?)
             }
         }
+        
     };
 }
 
+packetrs_read_builtin!(bool);
 packetrs_read_builtin!(u2);
 packetrs_read_builtin!(u3);
 packetrs_read_builtin!(u4);
@@ -49,4 +51,3 @@ packetrs_read_builtin!(u29);
 packetrs_read_builtin!(u30);
 packetrs_read_builtin!(u31);
 packetrs_read_builtin!(u32);
-packetrs_read_builtin!(u128);
