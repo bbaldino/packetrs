@@ -109,13 +109,25 @@ struct MyOtherStruct {
 ```
 
 ###### Fixed
-The `fixed` attribute describe allows defining a value which a read field _must_ have.  After reading the field, if the read value doesn't match the value defined in the `fixed` attribute, then an error is returned.
+The `fixed` attribute allows defining a value which a read field _must_ have.  After reading the field, if the read value doesn't match the value defined in the `fixed` attribute, then an error is returned.
 
 ```rust
+#[derive(PacketrsRead)]
 struct Foo {
     #[packetrs(fixed = "0b0000")]
     reserved: u4,
     other_field: u8
+}
+```
+
+###### Assert
+The `assert` attribute allows defining an assertion that a read field _must_ pass.  The expression must support taking a single argument of the type of the field's value and return a boolean.  After reading the field, the value will be passed to the assert expression; if the expression returns false an error is returned.
+
+```rust
+#[derive(PacketrsRead)]
+struct Foo {
+    #[packetrs(assert = "|v| v > 2 && v < 4")
+    version: u8,
 }
 ```
 
