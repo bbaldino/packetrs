@@ -123,7 +123,12 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())
                 .unwrap_or_else(|e| panic!("Error parsing 'when' value as expression: {}", e));
             Some(PacketRsAttributeParam::When(expr))
-        }
+        },
+        "read_value" => {
+            let expr = syn::parse_str::<syn::Expr>(&value_str.value())
+                .unwrap_or_else(|e| panic!("Error parsing 'read_value' value as expression: {}", e));
+            Some(PacketRsAttributeParam::ReadValue(expr))
+        },
         "reader" => {
             let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
                 .unwrap_or_else(|e| panic!("Error parsing 'reader' param as a valid Ident: {}", e));

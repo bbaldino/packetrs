@@ -48,10 +48,13 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         .get_caller_context_param_value()
         .map_or(Vec::new(), |c| c.clone());
 
-    let custom_reader = field.get_custom_reader();
-    let count_param = field.get_count_param_value();
+    if let Some(ref read_value) = field.get_read_value() {
+        return quote! {
+            let #field_name = #read_value;
+        }
+    }
 
-    let read_call = if let Some(ref custom_reader_value) = custom_reader {
+    let read_call = if let Some(ref custom_reader_value) = field.get_custom_reader() {
         quote! {
             #custom_reader_value(buf, (#(#read_context),*))
         }
@@ -59,7 +62,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         let field_read_call = generate_read_call(field, &read_context);
         if is_collection(field_ty) {
             // Must have a 'count' param
-            if let Some(ref count_param_value) = count_param {
+            if let Some(ref count_param_value) = field.get_count_param_value() {
                 quote! {
                     (0u32..#count_param_value.into())
                         .map(|_| #field_read_call)
