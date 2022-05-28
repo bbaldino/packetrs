@@ -143,3 +143,14 @@ pub(crate) fn is_collection(ty: &syn::Type) -> bool {
     };
     false
 }
+
+pub(crate) fn is_option(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(ref tp) = ty {
+        // We can't use path.get_ident here, because it doesn't work on a path whose first value
+        // has arguments.
+        if !tp.path.segments.is_empty() {
+            return tp.path.segments[0].ident == "Option";
+        }
+    };
+    false
+}

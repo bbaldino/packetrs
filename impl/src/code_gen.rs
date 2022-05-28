@@ -6,7 +6,7 @@ use crate::{
         are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
     },
-    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection},
+    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection, is_option},
 };
 
 pub(crate) fn get_crate_name() -> syn::Ident {
@@ -57,20 +57,35 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         }
     } else {
         let field_read_call = generate_read_call(field, &read_context);
-        if let Some(ref count_param_value) = count_param {
-            quote! {
-                (0..#count_param_value)
-                    .map(|_| #field_read_call)
-                    .map(|r| r.map_err(|e| e.into()))
-                    .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()
-            }
-        } else {
-            if is_collection(field_ty) {
+        if is_collection(field_ty) {
+            // Must have a 'count' param
+            if let Some(ref count_param_value) = count_param {
+                quote! {
+                    (0u32..#count_param_value.into())
+                        .map(|_| #field_read_call)
+                        .map(|r| r.map_err(|e| e.into()))
+                        .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()
+                }
+            } else {
                 panic!(
-                    "Field {:?} is a collection: either a count or custom_reader param is required",
+                    "Field {:?} is a collection: either a 'custom_reader' or a 'count' param is required",
                     field_name
                 );
             }
+        } else if is_option(field_ty) {
+            // Must have a 'when' param
+            if let Some(ref when_param_value) = field.get_when() {
+                quote! {
+                    if #when_param_value {
+                        Ok(Some(#field_read_call?))
+                    } else {
+                        Ok(None)
+                    }
+                }
+            } else {
+                panic!("Field {:?} is an Option, either a 'custom_reader' or a 'when' param is required", field_name);
+            }
+        } else {
             quote! {
                 #field_read_call
             }

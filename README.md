@@ -131,6 +131,17 @@ struct Foo {
 }
 ```
 
+###### When
+The `when` attribute must be used on an `Option` field, and provides an expression to denote whether or not the optional field is present/should be read.  The expression must return a bool.
+
+```rust
+#[derive(PacketrsRead)]
+struct Foo {
+    #[packetrs(when = "buf.bytes_remaining() >= 4")]
+    optional_field: Option<u8>,
+}
+```
+
 ###### Reader
 The `reader` attribute allows using a custom-defined reader method instead of auto-generating one.  The method must return a `PacketRsResult<T>` where `T` matches the type of the annotated field.
 

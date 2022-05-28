@@ -89,11 +89,12 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
 
     // TODO: some use the LitStr, and others use String...can they be made consistent?
     match name.to_string().as_ref() {
-        "count" => Some(PacketRsAttributeParam::Count(
-            value_str
+        "count" => {
+            let expr = value_str
                 .parse::<syn::Expr>()
-                .expect("Unable to parse count param as an expression"),
-        )),
+                .unwrap_or_else(|e| panic!("Unable to parse 'count' param as expression: {}", e));
+            Some(PacketRsAttributeParam::Count(expr))
+        },
         "ctx" => {
             // value_str represents a comma-separated list of expression we'll pass as arguments
             // to the read method.  Split it, parse each as an Expr, and collect them to a Vec.
@@ -102,12 +103,12 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
                 .split(',')
                 .map(syn::parse_str::<syn::Expr>)
                 .collect::<Result<Vec<syn::Expr>, syn::Error>>()
-                .expect("Error parsing a context arg as an expression");
+                .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions: {}", e));
             Some(PacketRsAttributeParam::CallerContext(exprs))
         }
         "required_ctx" => {
             let args = parse_fn_args_from_lit_str(value_str)
-                .expect("Error parsing required context args");
+                .unwrap_or_else(|e| panic!("Error parsing 'required_ctx' value as fn args: {}", e));
             Some(PacketRsAttributeParam::RequiredContext(args))
         }
         "key" => Some(PacketRsAttributeParam::EnumKey(value_str.clone())),
@@ -115,12 +116,17 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
         "assert" => {
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())
-                .expect("Error parsing assert as expression");
+                .unwrap_or_else(|e| panic!("Error parsing 'assert' value as expression: {}", e));
             Some(PacketRsAttributeParam::Assert(expr))
         },
+        "when" => {
+            let expr = syn::parse_str::<syn::Expr>(&value_str.value())
+                .unwrap_or_else(|e| panic!("Error parsing 'when' value as expression: {}", e));
+            Some(PacketRsAttributeParam::When(expr))
+        }
         "reader" => {
             let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
-                .expect("reader param is a valid ident");
+                .unwrap_or_else(|e| panic!("Error parsing 'reader' param as a valid Ident: {}", e));
             Some(PacketRsAttributeParam::CustomReader(reader_ident))
         }
         _ => {

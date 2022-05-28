@@ -19,6 +19,8 @@ pub(crate) enum PacketRsAttributeParam {
     Fixed(syn::LitStr),
     // An expression that the field's value must pass
     Assert(syn::Expr),
+    // An expression that defines when an optional field is present
+    When(syn::Expr),
     // The name of a custom reader function to be used to read this type
     CustomReader(syn::Ident),
 }
@@ -87,6 +89,7 @@ pub trait GetParameterValue {
     fn get_enum_key(&self) -> Option<&syn::LitStr>;
     fn get_fixed_value(&self) -> Option<&syn::LitStr>;
     fn get_assert(&self) -> Option<&syn::Expr>;
+    fn get_when(&self) -> Option<&syn::Expr>;
     fn get_custom_reader(&self) -> Option<&syn::Ident>;
 }
 
@@ -139,6 +142,13 @@ where
     fn get_assert(&self) -> Option<&syn::Expr> {
         self.get_parameters().iter().find_map(|p| match p {
             PacketRsAttributeParam::Assert(ref val) => Some(val),
+            _ => None,
+        })
+    }
+
+    fn get_when(&self) -> Option<&syn::Expr> {
+        self.get_parameters().iter().find_map(|p| match p {
+            PacketRsAttributeParam::When(ref val) => Some(val),
             _ => None,
         })
     }
