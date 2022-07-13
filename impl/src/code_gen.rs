@@ -6,7 +6,7 @@ use crate::{
         are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
     },
-    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection, is_option},
+    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection, is_option, get_var_name_from_fn_arg},
 };
 
 pub(crate) fn get_crate_name() -> syn::Ident {
@@ -314,32 +314,62 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     };
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let enum_name = &packetrs_enum.name;
-    let enum_variant_key = packetrs_enum
-        .get_enum_key()
-        .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name))
-        .value();
 
-    // TODO: without this, we get quotes around the variant key in the match statement below.  is
-    // there a better way?
-    let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key)
-        .unwrap_or_else(|e| panic!("Unable to parse enum key as an expression: {}: {}", enum_variant_key, e));
+    // If there is a custom reader, then the function body will just be a passthrough call to
+    // that custom reader function.  Otherwise it will be a match expression.
+    let body = if let Some(ref custom_reader_value) = packetrs_enum.get_custom_reader() {
+        // When using a custom reader, we'll pass all the required context variables
+        // to the custom reader
+        let ctx_args = if let Some(ctx) = expected_context {
+            ctx
+                .iter()
+                .map(get_var_name_from_fn_arg)
+                .collect::<Option<Vec<&syn::Ident>>>()
+                .map_or(quote! { () }, |idents| {
+                    quote! {
+                        (#(#idents,)*)
+                    }
+                })
+        } else {
+            quote!{ () }
+        };
+        
+        let error_context = format!("{}", custom_reader_value);
+        quote! {
+            #custom_reader_value(buf, #ctx_args).context(#error_context)
+        }
+    } else {
+        let enum_variant_key = packetrs_enum
+            .get_enum_key()
+            .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name))
+            .value();
 
-    let match_arms = packetrs_enum
-        .variants
-        .iter()
-        .map(|v| generate_match_arm(enum_name, v))
-        .collect::<Vec<proc_macro2::TokenStream>>();
+        // TODO: without this, we get quotes around the variant key in the match statement below.  is
+        // there a better way?
+        let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key)
+            .unwrap_or_else(|e| panic!("Unable to parse enum key as an expression: {}: {}", enum_variant_key, e));
+
+        let match_arms = packetrs_enum
+            .variants
+            .iter()
+            .map(|v| generate_match_arm(enum_name, v))
+            .collect::<Vec<proc_macro2::TokenStream>>();
+
+        quote! {
+            match #enum_variant_key {
+                #(#match_arms),*,
+                v @ _ => {
+                    todo!("Value of {} is not implemented", v);
+                }
+            }
+        }
+    };
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
-                match #enum_variant_key {
-                    #(#match_arms),*,
-                    v @ _ => {
-                        todo!("Value of {} is not implemented", v);
-                    }
-                }
+                #body
             }
         }
     }

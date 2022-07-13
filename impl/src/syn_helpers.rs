@@ -57,6 +57,19 @@ pub(crate) fn get_var_type_from_fn_arg(fn_arg: &syn::FnArg) -> Option<&syn::Type
     }
 }
 
+pub(crate) fn get_var_name_from_fn_arg(fn_arg: &syn::FnArg) -> Option<&syn::Ident> {
+    match fn_arg {
+        syn::FnArg::Typed(syn::PatType { pat, .. }) => {
+            if let syn::Pat::Ident(ref pat_ident) = **pat {
+                Some(&pat_ident.ident)
+            } else {
+                None
+            }
+        },
+        _ => None,
+    }
+}
+
 fn get_type_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     let type_path = match ty {
         syn::Type::Path(p) => p,
