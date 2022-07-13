@@ -154,28 +154,19 @@ fn generate_field_reads(fields: &[PacketRsField]) -> TokenStream {
 /// But for some reason parse isn't implemented for syn::Local, so for now just returning a
 /// TokenStream instead
 fn generate_context_assignments(context: &[syn::FnArg]) -> TokenStream {
-    // If there's only a single context argument, then it won't be stored in a type so we'll assign
-    // it directly
-    if context.len() == 1 {
-        let fn_arg = &context[0];
-        quote! {
-            let #fn_arg = ctx;
-        }
-    } else {
-        let lines = context
-            .iter()
-            .enumerate()
-            .map(|(idx, fn_arg)| {
-                let idx: syn::Index = idx.into();
-                quote! {
-                    let #fn_arg = ctx.#idx;
-                }
-            })
-            .collect::<Vec<proc_macro2::TokenStream>>();
+    let lines = context
+        .iter()
+        .enumerate()
+        .map(|(idx, fn_arg)| {
+            let idx: syn::Index = idx.into();
+            quote! {
+                let #fn_arg = ctx.#idx;
+            }
+        })
+    .collect::<Vec<proc_macro2::TokenStream>>();
 
-        quote! {
-            #(#lines)*
-        }
+    quote! {
+        #(#lines)*
     }
 }
 
@@ -372,5 +363,30 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
                 #body
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_context_assignments() {
+        let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
+        let result = generate_context_assignments(&vec![fn_arg]);
+        assert_eq!(result.to_string(), quote! {
+            let foo: u32 = ctx.0;
+        }.to_string());
+    }
+
+    #[test]
+    fn test_generate_context_assignments_multiple() {
+        let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
+        let fn_arg2 = syn::parse_str::<syn::FnArg>("bar: u8").unwrap();
+        let result = generate_context_assignments(&vec![fn_arg, fn_arg2]);
+        assert_eq!(result.to_string(), quote! {
+            let foo: u32 = ctx.0;
+            let bar: u8 = ctx.1;
+        }.to_string());
     }
 }

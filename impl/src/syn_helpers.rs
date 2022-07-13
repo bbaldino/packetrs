@@ -83,37 +83,24 @@ fn get_type_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 }
 
 /// Given an optional vector of FnArgs parsed from an 'expected_context' attribute, extract the
-/// types of each field into a single type which could be either:
-///   a tuple containing each of the types in order if there are more than 1 types
-///   a plain type, if there is only one (tuple can't be used here)
-///   the unit type ('()') if there are no args
-/// and return it as a syn::Type.  Will return Err if any of the Fn
+/// types of each field into a single tuple type.
 pub(crate) fn get_ctx_type(
     expected_context: &Option<&Vec<syn::FnArg>>,
 ) -> syn::parse::Result<syn::Type> {
-    if let Some(ctx) = expected_context {
-        let types = ctx
-            .iter()
-            .filter_map(get_var_type_from_fn_arg)
-            .collect::<Vec<&syn::Type>>();
-        if types.len() == 1 {
-            syn::parse::<syn::Type>(
+    expected_context
+        .map_or(syn::parse2::<syn::Type>(quote! { () }), |fn_args| {
+            let type_vec = fn_args
+                .iter()
+                .map(get_var_type_from_fn_arg)
+                .collect::<Option<Vec<&syn::Type>>>()
+                // TODO: instead of unwrap, should map None to an syn::parse::Error and return it
+                .unwrap();
+            syn::parse2::<syn::Type>(
                 quote! {
-                    #(#types)*
+                    (#(#type_vec,)*)
                 }
-                .into(),
             )
-        } else {
-            syn::parse::<syn::Type>(
-                quote! {
-                    (#(#types),*)
-                }
-                .into(),
-            )
-        }
-    } else {
-        syn::parse_str::<syn::Type>("()")
-    }
+        })
 }
 
 pub(crate) fn get_ident_of_inner_type(ty: &syn::Type) -> Option<&syn::Ident> {
@@ -166,4 +153,36 @@ pub(crate) fn is_option(ty: &syn::Type) -> bool {
         }
     };
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_ctx_type_single_type() {
+        let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
+        let result = get_ctx_type(&Some(&vec![fn_arg]));
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), syn::parse_str::<syn::Type>("(u32,)").unwrap());
+    }
+
+    #[test]
+    fn test_get_ctx_type_multiple_types() {
+        let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
+        let fn_arg2 = syn::parse_str::<syn::FnArg>("bar: u8").unwrap();
+        let result = get_ctx_type(&Some(&vec![fn_arg, fn_arg2]));
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), syn::parse_str::<syn::Type>("(u32,u8,)").unwrap());
+    }
+
+    #[test]
+    fn test_get_ctx_type_empty_types() {
+        let result = get_ctx_type(&Some(&vec![]));
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), syn::parse_str::<syn::Type>("()").unwrap());
+    }
 }
