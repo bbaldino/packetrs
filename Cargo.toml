@@ -11,6 +11,9 @@ description = "Macro-based struct serialization/deserialization"
 packetrs-macro = { version = "=0.5.0", path = "macro" }
 packetrs-impl = { version = "=0.5.0", path = "impl" }
 
+[dev-dependencies]
+trybuild = "1"
+
 [workspace]
 members = [".", "impl", "macro"]
 default-members = [".", "impl"]
