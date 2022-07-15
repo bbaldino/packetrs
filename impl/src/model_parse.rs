@@ -98,12 +98,15 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
         "ctx" => {
             // value_str represents a comma-separated list of expression we'll pass as arguments
             // to the read method.  Split it, parse each as an Expr, and collect them to a Vec.
+            // NOTE: There are some syn::Expr types that allow a comma (for example a method call
+            // so this technically isn't the best delimiter to use, but currently it feels like a
+            // reasonable compromise. 
             let exprs = value_str
                 .value()
                 .split(',')
                 .map(syn::parse_str::<syn::Expr>)
                 .collect::<Result<Vec<syn::Expr>, syn::Error>>()
-                .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions: {}", e));
+                .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions: {}, {:?}", e, value_str));
             Some(PacketRsAttributeParam::CallerContext(exprs))
         }
         "required_ctx" => {

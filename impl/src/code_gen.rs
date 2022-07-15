@@ -2,6 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 
 use crate::{
+    match_pat_guard::MatchPatGuard,
     model_types::{
         are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
@@ -261,9 +262,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
         .get_enum_id()
         .unwrap_or_else(|| panic!("Enum variant {} is missing 'id' attribute", variant_name))
         .value();
-    // TODO: this won't cover everything (like a guard on a match arm), but it's probably
-    // good enough?  See https://docs.rs/syn/latest/syn/struct.Arm.html
-    let key = syn::parse_str::<syn::Pat>(&key).expect("Unable to parse match pattern");
+    let key = syn::parse_str::<MatchPatGuard>(&key).expect("Unable to parse match pattern");
 
     let fields = if are_fields_named(&variant.fields) {
         variant.fields.clone()
