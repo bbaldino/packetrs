@@ -179,3 +179,4 @@ Unnamed fields can't be annotated, but they're common enough that there's specia
 [ ] Unit tests - still need to research how best to do those for proc macros
 [ ] Implement PacketrsWrite
 [ ] More features: read until/while for collection fields. 
+[ ] Support params spread across multiple packetrs attributes
