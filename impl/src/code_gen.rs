@@ -6,7 +6,9 @@ use crate::{
         are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
     },
-    syn_helpers::{get_ctx_type, get_ident_of_inner_type, is_collection, is_option, get_var_name_from_fn_arg},
+    syn_helpers::{
+        get_ctx_type, get_ident_of_inner_type, get_var_name_from_fn_arg, is_collection, is_option,
+    },
 };
 
 pub(crate) fn get_crate_name() -> syn::Ident {
@@ -51,7 +53,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     if let Some(ref read_value) = field.get_read_value() {
         return quote! {
             let #field_name = #read_value;
-        }
+        };
     }
 
     let read_call = if let Some(ref custom_reader_value) = field.get_custom_reader() {
@@ -163,71 +165,89 @@ fn generate_context_assignments(context: &[syn::FnArg]) -> TokenStream {
                 let #fn_arg = ctx.#idx;
             }
         })
-    .collect::<Vec<proc_macro2::TokenStream>>();
+        .collect::<Vec<proc_macro2::TokenStream>>();
 
     quote! {
         #(#lines)*
     }
 }
 
-fn generate_struct_read_body(rs_struct: &PacketRsStruct) -> proc_macro2::TokenStream {
-    let context_assignments =
-        if let Some(required_ctx) = rs_struct.get_required_context_param_value() {
-            generate_context_assignments(required_ctx)
-        } else {
-            proc_macro2::TokenStream::new()
-        };
-
-    // If the struct has named fields, then take them directly. If not, then generate synthetic
-    // field names for each of the unnamed fields, and copy the attributes from the struct itself
-    // to make it more convenient.
-    // TODO: way to avoid the clone here?
-    let fields = if are_fields_named(&rs_struct.fields) {
-        rs_struct.fields.clone()
-    } else {
-        rs_struct
-            .fields
-            .iter()
-            .enumerate()
-            .map(|(idx, f)| PacketRsField {
-                name: Some(format_ident!("field_{}", idx)),
-                ty: f.ty,
-                parameters: rs_struct.parameters.clone(),
-            })
-            .collect()
-    };
-    let reads = generate_field_reads(&fields);
-    let field_names = fields
-        .iter()
-        .map(|f| f.name.as_ref().expect("Unable to get name of named field"));
-    let context_assignments_and_field_reads = quote! {
-        #context_assignments
-        #reads
-    };
-    let creation = if are_fields_named(&rs_struct.fields) {
-        quote! {
-            Ok(Self { #(#field_names),* })
-        }
-    } else {
-        quote! {
-            Ok(Self(#(#field_names),*))
-        }
-    };
-    quote! {
-        #context_assignments_and_field_reads
-        #creation
-    }
-}
-
+/// Generate the PacketrsRead method for the given struct.
 pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let crate_name = get_crate_name();
     let expected_context = packetrs_struct.get_required_context_param_value();
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let struct_name = &packetrs_struct.name;
-    let read_body = generate_struct_read_body(packetrs_struct);
+
+    let context_assignments = if let Some(required_ctx) = expected_context {
+        generate_context_assignments(required_ctx)
+    } else {
+        proc_macro2::TokenStream::new()
+    };
+
+    let read_body = if let Some(ref custom_reader_value) = packetrs_struct.get_custom_reader() {
+        // TODO: move to helper, re-use in generate_enum
+        // When using a custom reader, we'll pass all the required context variables
+        // to the custom reader
+        let ctx_args = if let Some(ctx) = expected_context {
+            ctx.iter()
+                .map(get_var_name_from_fn_arg)
+                .collect::<Option<Vec<&syn::Ident>>>()
+                .map_or(quote! { () }, |idents| {
+                    quote! {
+                        (#(#idents,)*)
+                    }
+                })
+        } else {
+            quote! { () }
+        };
+
+        let error_context = format!("{}", custom_reader_value);
+        quote! {
+            #custom_reader_value(buf, #ctx_args).context(#error_context)
+        }
+    } else {
+        // If the struct has named fields, then take them directly. If not, then generate synthetic
+        // field names for each of the unnamed fields, and copy the attributes from the struct itself
+        // to make it more convenient.
+        // TODO: way to avoid the clone here?
+        let fields = if are_fields_named(&packetrs_struct.fields) {
+            packetrs_struct.fields.clone()
+        } else {
+            packetrs_struct
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(idx, f)| PacketRsField {
+                    name: Some(format_ident!("field_{}", idx)),
+                    ty: f.ty,
+                    parameters: packetrs_struct.parameters.clone(),
+                })
+                .collect()
+        };
+        let reads = generate_field_reads(&fields);
+        let field_names = fields
+            .iter()
+            .map(|f| f.name.as_ref().expect("Unable to get name of named field"));
+        let creation = if are_fields_named(&packetrs_struct.fields) {
+            quote! {
+                Ok(Self { #(#field_names),* })
+            }
+        } else {
+            quote! {
+                Ok(Self(#(#field_names),*))
+            }
+        };
+        quote! {
+            #reads
+            #creation
+        }
+    };
+
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
             fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+                #context_assignments
                 #read_body
             }
         }
@@ -312,8 +332,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
         // When using a custom reader, we'll pass all the required context variables
         // to the custom reader
         let ctx_args = if let Some(ctx) = expected_context {
-            ctx
-                .iter()
+            ctx.iter()
                 .map(get_var_name_from_fn_arg)
                 .collect::<Option<Vec<&syn::Ident>>>()
                 .map_or(quote! { () }, |idents| {
@@ -322,9 +341,9 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
                     }
                 })
         } else {
-            quote!{ () }
+            quote! { () }
         };
-        
+
         let error_context = format!("{}", custom_reader_value);
         quote! {
             #custom_reader_value(buf, #ctx_args).context(#error_context)
@@ -337,8 +356,12 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
         // TODO: without this, we get quotes around the variant key in the match statement below.  is
         // there a better way?
-        let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key)
-            .unwrap_or_else(|e| panic!("Unable to parse enum key as an expression: {}: {}", enum_variant_key, e));
+        let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key).unwrap_or_else(|e| {
+            panic!(
+                "Unable to parse enum key as an expression: {}: {}",
+                enum_variant_key, e
+            )
+        });
 
         let match_arms = packetrs_enum
             .variants
@@ -374,9 +397,13 @@ mod tests {
     fn test_generate_context_assignments() {
         let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
         let result = generate_context_assignments(&vec![fn_arg]);
-        assert_eq!(result.to_string(), quote! {
-            let foo: u32 = ctx.0;
-        }.to_string());
+        assert_eq!(
+            result.to_string(),
+            quote! {
+                let foo: u32 = ctx.0;
+            }
+            .to_string()
+        );
     }
 
     #[test]
@@ -384,9 +411,13 @@ mod tests {
         let fn_arg = syn::parse_str::<syn::FnArg>("foo: u32").unwrap();
         let fn_arg2 = syn::parse_str::<syn::FnArg>("bar: u8").unwrap();
         let result = generate_context_assignments(&vec![fn_arg, fn_arg2]);
-        assert_eq!(result.to_string(), quote! {
-            let foo: u32 = ctx.0;
-            let bar: u8 = ctx.1;
-        }.to_string());
+        assert_eq!(
+            result.to_string(),
+            quote! {
+                let foo: u32 = ctx.0;
+                let bar: u8 = ctx.1;
+            }
+            .to_string()
+        );
     }
 }
