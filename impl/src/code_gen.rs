@@ -31,7 +31,7 @@ fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> T
     let inner_type = get_ident_of_inner_type(field.ty)
         .unwrap_or_else(|| panic!("Unable to get ident of inner type from: {:#?}", &field.ty));
     quote! {
-        #inner_type::read(buf, (#(#read_context),*))
+        #inner_type::read(buf, (#(#read_context,)*))
     }
 }
 
@@ -65,7 +65,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
 
     let read_call = if let Some(ref custom_reader_value) = field.get_custom_reader() {
         quote! {
-            #custom_reader_value(buf, (#(#read_context),*))
+            #custom_reader_value(buf, (#(#read_context,)*))
         }
     } else {
         let field_read_call = generate_read_call(field, &read_context);
