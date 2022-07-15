@@ -96,18 +96,10 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             Some(PacketRsAttributeParam::Count(expr))
         },
         "ctx" => {
-            // value_str represents a comma-separated list of expression we'll pass as arguments
-            // to the read method.  Split it, parse each as an Expr, and collect them to a Vec.
-            // NOTE: There are some syn::Expr types that allow a comma (for example a method call
-            // so this technically isn't the best delimiter to use, but currently it feels like a
-            // reasonable compromise. 
-            let exprs = value_str
-                .value()
-                .split(',')
-                .map(syn::parse_str::<syn::Expr>)
-                .collect::<Result<Vec<syn::Expr>, syn::Error>>()
-                .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions: {}, {:?}", e, value_str));
-            Some(PacketRsAttributeParam::CallerContext(exprs))
+            // We just grab the context value as one string here, because a custom delimiter on
+            // which to split may have been passed, so we delay splitting until later when all
+            // attributes have been parsed.
+            Some(PacketRsAttributeParam::CallerContext(value_str.clone()))
         }
         "required_ctx" => {
             let args = parse_fn_args_from_lit_str(value_str)
@@ -136,6 +128,9 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
                 .unwrap_or_else(|e| panic!("Error parsing 'reader' param as a valid Ident: {}", e));
             Some(PacketRsAttributeParam::CustomReader(reader_ident))
+        },
+        "ctx_delim" => {
+            Some(PacketRsAttributeParam::CtxDelim(value_str.clone()))
         }
         _ => {
             // TODO: refactor this to use a spanned compiler error

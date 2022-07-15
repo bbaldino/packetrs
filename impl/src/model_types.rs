@@ -5,8 +5,9 @@ pub(crate) enum PacketRsAttributeParam {
     // field should be parsed.
     Count(syn::Expr),
     // A String containing the list of context arguments that will be passed to the read method of
-    // the annotated field.
-    CallerContext(Vec<syn::Expr>),
+    // the annotated field.  Value will be split by a comma by default.  See CtxDelim to override
+    // the delimiter.
+    CallerContext(syn::LitStr),
     // A vector containing the list of function arguments in the form of syn::FnArg that is
     // required to be passed to the read method of the annotated struct.
     RequiredContext(Vec<syn::FnArg>),
@@ -26,6 +27,9 @@ pub(crate) enum PacketRsAttributeParam {
     ReadValue(syn::Expr),
     // The name of a custom reader function to be used to read this type
     CustomReader(syn::Ident),
+    // Sometimes values including a comma need to be passed in a CallerContext argument.  If so,
+    // the default delimiter can be overriden via this parameter.
+    CtxDelim(syn::LitStr),
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +90,7 @@ impl HasParameters for PacketRsEnum<'_> {
 
 pub trait GetParameterValue {
     fn get_count_param_value(&self) -> Option<&syn::Expr>;
-    fn get_caller_context_param_value(&self) -> Option<&Vec<syn::Expr>>;
+    fn get_caller_context_param_value(&self) -> Option<&syn::LitStr>;
     fn get_required_context_param_value(&self) -> Option<&Vec<syn::FnArg>>;
     fn get_enum_id(&self) -> Option<&syn::LitStr>;
     fn get_enum_key(&self) -> Option<&syn::LitStr>;
@@ -95,6 +99,7 @@ pub trait GetParameterValue {
     fn get_when(&self) -> Option<&syn::Expr>;
     fn get_read_value(&self) -> Option<&syn::Expr>;
     fn get_custom_reader(&self) -> Option<&syn::Ident>;
+    fn get_ctx_delim(&self) -> Option<&syn::LitStr>;
 }
 
 impl<T> GetParameterValue for T
@@ -108,7 +113,7 @@ where
         })
     }
 
-    fn get_caller_context_param_value(&self) -> Option<&Vec<syn::Expr>> {
+    fn get_caller_context_param_value(&self) -> Option<&syn::LitStr> {
         self.get_parameters().iter().find_map(|p| match p {
             PacketRsAttributeParam::CallerContext(ref s) => Some(s),
             _ => None,
@@ -167,6 +172,13 @@ where
     fn get_custom_reader(&self) -> Option<&syn::Ident> {
         self.get_parameters().iter().find_map(|p| match p {
             PacketRsAttributeParam::CustomReader(ref val) => Some(val),
+            _ => None,
+        })
+    }
+
+    fn get_ctx_delim(&self) -> Option<&syn::LitStr> {
+        self.get_parameters().iter().find_map(|p| match p {
+            PacketRsAttributeParam::CtxDelim(ref val) => Some(val),
             _ => None,
         })
     }

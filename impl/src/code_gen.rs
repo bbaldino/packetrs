@@ -45,11 +45,17 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         .to_string();
 
     // Generate the context assignments, if there are any.
-    // TODO: we have to do the clone here so we can return an empty vec in the else case,
-    // otherwise we can't return a reference to a temporary vector.  is there a better way?
-    let read_context = field
-        .get_caller_context_param_value()
-        .map_or(Vec::new(), |c| c.clone());
+    let read_context = if let Some(read_context) = field.get_caller_context_param_value() {
+        let delimiter = field.get_ctx_delim().map(|ls| ls.value()).unwrap_or(",".to_owned());
+        read_context
+            .value()
+            .split::<&str>(delimiter.as_ref())
+            .map(syn::parse_str::<syn::Expr>)
+            .collect::<Result<Vec<syn::Expr>, syn::Error>>()
+            .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions using delimiter {}: {}, {:?}", delimiter, e, read_context))
+    } else {
+        Vec::new()
+    };
 
     if let Some(ref read_value) = field.get_read_value() {
         return quote! {
@@ -372,7 +378,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
             match #enum_variant_key {
                 #(#match_arms),*,
                 v @ _ => {
-                    todo!("Value of {} is not implemented", v);
+                    todo!("Value of {:?} is not implemented", v);
                 }
             }
         }
