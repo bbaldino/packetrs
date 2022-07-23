@@ -82,108 +82,50 @@ impl HasParameters for PacketRsEnumVariant<'_> {
     }
 }
 
-impl HasParameters for PacketRsEnum<'_> {
-    fn get_parameters(&self) -> &Vec<PacketRsAttributeParam> {
-        &self.parameters
-    }
+/// Find the first element in $params that matches the given variant.  Will return
+/// an Option of the type inside the variant.  Only works with a variant with a single
+/// unnamed field.
+#[macro_export]
+macro_rules! get_param {
+    ($params:expr, $variant:tt) => {
+        $params.iter().find_map(|p| match p {
+            PacketRsAttributeParam::$variant(ref v) => Some(v),
+            _ => None,
+        })
+    };
 }
 
-pub trait GetParameterValue {
-    fn get_count_param_value(&self) -> Option<&syn::Expr>;
-    fn get_caller_context_param_value(&self) -> Option<&syn::LitStr>;
-    fn get_required_context_param_value(&self) -> Option<&Vec<syn::FnArg>>;
-    fn get_enum_id(&self) -> Option<&syn::LitStr>;
-    fn get_enum_key(&self) -> Option<&syn::LitStr>;
-    fn get_fixed_value(&self) -> Option<&syn::LitStr>;
-    fn get_assert(&self) -> Option<&syn::Expr>;
-    fn get_when(&self) -> Option<&syn::Expr>;
-    fn get_read_value(&self) -> Option<&syn::Expr>;
-    fn get_custom_reader(&self) -> Option<&syn::Ident>;
-    fn get_ctx_delim(&self) -> Option<&syn::LitStr>;
-}
-
-impl<T> GetParameterValue for T
-where
-    T: HasParameters,
-{
-    fn get_count_param_value(&self) -> Option<&syn::Expr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::Count(ref s) => Some(s),
-            _ => None,
-        })
-    }
-
-    fn get_caller_context_param_value(&self) -> Option<&syn::LitStr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::CallerContext(ref s) => Some(s),
-            _ => None,
-        })
-    }
-
-    fn get_required_context_param_value(&self) -> Option<&Vec<syn::FnArg>> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::RequiredContext(ref v) => Some(v),
-            _ => None,
-        })
-    }
-
-    fn get_enum_id(&self) -> Option<&syn::LitStr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::EnumId(ref id) => Some(id),
-            _ => None,
-        })
-    }
-
-    fn get_enum_key(&self) -> Option<&syn::LitStr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::EnumKey(ref key) => Some(key),
-            _ => None,
-        })
-    }
-
-    fn get_fixed_value(&self) -> Option<&syn::LitStr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::Fixed(ref val) => Some(val),
-            _ => None,
-        })
-    }
-
-    fn get_assert(&self) -> Option<&syn::Expr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::Assert(ref val) => Some(val),
-            _ => None,
-        })
-    }
-
-    fn get_when(&self) -> Option<&syn::Expr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::When(ref val) => Some(val),
-            _ => None,
-        })
-    }
-
-    fn get_read_value(&self) -> Option<&syn::Expr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::ReadValue(ref val) => Some(val),
-            _ => None,
-        })
-    }
-
-    fn get_custom_reader(&self) -> Option<&syn::Ident> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::CustomReader(ref val) => Some(val),
-            _ => None,
-        })
-    }
-
-    fn get_ctx_delim(&self) -> Option<&syn::LitStr> {
-        self.get_parameters().iter().find_map(|p| match p {
-            PacketRsAttributeParam::CtxDelim(ref val) => Some(val),
-            _ => None,
-        })
-    }
+/// Find all elements in $params that matches the given variant.  Will return
+/// a vector of the found inner values.  Only works with a variant with a single
+/// unnamed field.
+macro_rules! get_params {
+    ($params:ident, $variant:tt) => {
+        $params
+            .iter()
+            .filter_map(|p| match p {
+                PacketRsAttributeParam::$variant(ref v) => Some(v),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
 }
 
 pub(crate) fn are_fields_named(fields: &[PacketRsField<'_>]) -> bool {
     fields.iter().any(|f| f.name.is_some())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_name() {
+        let params = vec![
+            PacketRsAttributeParam::EnumKey(syn::parse_str::<syn::LitStr>("\"hello\"").unwrap()),
+            PacketRsAttributeParam::Fixed(syn::parse_str::<syn::LitStr>("\"world\"").unwrap()),
+            PacketRsAttributeParam::EnumKey(syn::parse_str::<syn::LitStr>("\"foo\"").unwrap()),
+        ];
+        let result = get_params!(params, EnumKey);
+        println!("found param: {:?}", result);
+    }
 }

@@ -2,9 +2,10 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 
 use crate::{
+    get_param,
     match_pat_guard::MatchPatGuard,
     model_types::{
-        are_fields_named, GetParameterValue, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
+        are_fields_named, PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
     },
     syn_helpers::{
@@ -45,25 +46,34 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         .to_string();
 
     // Generate the context assignments, if there are any.
-    let read_context = if let Some(read_context) = field.get_caller_context_param_value() {
-        let delimiter = field.get_ctx_delim().map(|ls| ls.value()).unwrap_or(",".to_owned());
+    let read_context = if let Some(read_context) = get_param!(&field.parameters, CallerContext) {
+        let delimiter = get_param!(&field.parameters, CtxDelim)
+            .map(|ls| ls.value())
+            .unwrap_or(",".to_owned());
         read_context
             .value()
             .split::<&str>(delimiter.as_ref())
             .map(syn::parse_str::<syn::Expr>)
             .collect::<Result<Vec<syn::Expr>, syn::Error>>()
-            .unwrap_or_else(|e| panic!("Error parsing 'ctx' value as Vec of expressions using delimiter {}: {}, {:?}", delimiter, e, read_context))
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Error parsing 'ctx' value as Vec of expressions using delimiter {}: {}, {:?}",
+                    delimiter, e, read_context
+                )
+            })
     } else {
         Vec::new()
     };
 
-    if let Some(ref read_value) = field.get_read_value() {
+    if let Some(ref read_value) = get_param!(&field.parameters, ReadValue) {
         return quote! {
             let #field_name = #read_value;
         };
     }
 
-    let read_call = if let Some(ref custom_reader_value) = field.get_custom_reader() {
+    let read_call = if let Some(ref custom_reader_value) =
+        get_param!(&field.parameters, CustomReader)
+    {
         quote! {
             #custom_reader_value(buf, (#(#read_context,)*))
         }
@@ -71,7 +81,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         let field_read_call = generate_read_call(field, &read_context);
         if is_collection(field_ty) {
             // Must have a 'count' param
-            if let Some(ref count_param_value) = field.get_count_param_value() {
+            if let Some(ref count_param_value) = get_param!(&field.parameters, Count) {
                 quote! {
                     (0u32..#count_param_value.into())
                         .map(|_| #field_read_call)
@@ -86,7 +96,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
             }
         } else if is_option(field_ty) {
             // Must have a 'when' param
-            if let Some(ref when_param_value) = field.get_when() {
+            if let Some(ref when_param_value) = get_param!(&field.parameters, When) {
                 quote! {
                     if #when_param_value {
                         Ok(Some(#field_read_call?))
@@ -105,7 +115,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     };
 
     // If there is a fixed value param, generate the assertion
-    let fixed_value_assertion = if let Some(fixed_value) = field.get_fixed_value() {
+    let fixed_value_assertion = if let Some(fixed_value) = get_param!(&field.parameters, Fixed) {
         let field_name_str = field_name.as_ref().unwrap().to_string();
         let fixed_value = syn::parse_str::<syn::Expr>(fixed_value.value().as_ref()).unwrap();
         quote! {
@@ -117,7 +127,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
         TokenStream::new()
     };
     // If there is an assert expression, generate the assertion
-    let assertion = if let Some(assertion) = field.get_assert() {
+    let assertion = if let Some(assertion) = get_param!(&field.parameters, Assert) {
         let field_name_str = field_name.as_ref().unwrap().to_string();
         let assertion_str = quote! { #assertion }.to_string();
         quote! {
@@ -182,7 +192,7 @@ fn generate_context_assignments(context: &[syn::FnArg]) -> TokenStream {
 /// Generate the PacketrsRead method for the given struct.
 pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
     let crate_name = get_crate_name();
-    let expected_context = packetrs_struct.get_required_context_param_value();
+    let expected_context = get_param!(&packetrs_struct.parameters, RequiredContext);
     let ctx_type = get_ctx_type(&expected_context).expect("Error getting ctx type");
     let struct_name = &packetrs_struct.name;
 
@@ -192,7 +202,9 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
         proc_macro2::TokenStream::new()
     };
 
-    let read_body = if let Some(ref custom_reader_value) = packetrs_struct.get_custom_reader() {
+    let read_body = if let Some(ref custom_reader_value) =
+        get_param!(&packetrs_struct.parameters, CustomReader)
+    {
         // TODO: move to helper, re-use in generate_enum
         // When using a custom reader, we'll pass all the required context variables
         // to the custom reader
@@ -264,8 +276,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> TokenStream {
     let variant_name = variant.name;
     let variant_name_str = variant_name.to_string();
-    let key = variant
-        .get_enum_id()
+    let key = get_param!(&variant.parameters, EnumId)
         .unwrap_or_else(|| panic!("Enum variant {} is missing 'id' attribute", variant_name))
         .value();
     let key = syn::parse_str::<MatchPatGuard>(&key).expect("Unable to parse match pattern");
@@ -322,7 +333,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
 
 pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     let crate_name = get_crate_name();
-    let expected_context = packetrs_enum.get_required_context_param_value();
+    let expected_context = get_param!(&packetrs_enum.parameters, RequiredContext);
     let context_assignments = if let Some(required_ctx) = expected_context {
         generate_context_assignments(required_ctx)
     } else {
@@ -333,7 +344,9 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
     // If there is a custom reader, then the function body will just be a passthrough call to
     // that custom reader function.  Otherwise it will be a match expression.
-    let body = if let Some(ref custom_reader_value) = packetrs_enum.get_custom_reader() {
+    let body = if let Some(ref custom_reader_value) =
+        get_param!(&packetrs_enum.parameters, CustomReader)
+    {
         // When using a custom reader, we'll pass all the required context variables
         // to the custom reader
         let ctx_args = if let Some(ctx) = expected_context {
@@ -354,8 +367,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
             #custom_reader_value(buf, #ctx_args).context(#error_context)
         }
     } else {
-        let enum_variant_key = packetrs_enum
-            .get_enum_key()
+        let enum_variant_key = get_param!(&packetrs_enum.parameters, EnumKey)
             .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name))
             .value();
 
