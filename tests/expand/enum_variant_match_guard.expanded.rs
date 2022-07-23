@@ -20,7 +20,7 @@ impl ::packetrs::packetrs_read::PacketrsRead<(u32,)> for MyEnum {
                             ::core::fmt::ArgumentV1::new_display(
                                 &::core::fmt::Arguments::new_v1(
                                     &["Value of ", " is not implemented"],
-                                    &[::core::fmt::ArgumentV1::new_display(&v)],
+                                    &[::core::fmt::ArgumentV1::new_debug(&v)],
                                 ),
                             ),
                         ],
