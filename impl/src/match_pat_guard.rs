@@ -5,8 +5,8 @@ use syn::Token;
 /// 'Arm', which includes an entire match arm).
 #[derive(Debug, Clone)]
 pub(crate) struct MatchPatGuard {
-    pat: syn::Pat,
-    guard: Option<(syn::token::If, Box<syn::Expr>)>,
+    pub(crate) pat: syn::Pat,
+    pub(crate) guard: Option<(syn::token::If, Box<syn::Expr>)>,
 }
 
 impl syn::parse::Parse for MatchPatGuard {

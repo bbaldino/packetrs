@@ -158,7 +158,7 @@ pub struct StunPacket {
 ##### Enum/enum variant attributes
 These attributes are valid on either enums or enum variants
 ###### Key & Id
-The `key` attribute _must_ be present on an enum, and is an expression that's used in a match statement to differentiate between the variants.  Its counterpart is the `id` attribute, which _must_ be present on enum variants.  It should correspond to a result of the `key` that distinguishes its annotated variant.
+The `key` attribute _must_ be present on an enum, and is an expression that's used in a match statement to differentiate between the variants.  Its counterpart is the `id` attribute, which _must_ be present on enum variants (except for variants with discriminant values, for those the discriminant value will be used as the ID).  It should correspond to a result of the `key` that distinguishes its annotated variant.
 ```rust
 #[derive(Debug, PacketrsRead)]
 #[packetrs(required_ctx = "address_family: u8", key = "address_family")]

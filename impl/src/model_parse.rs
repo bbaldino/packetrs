@@ -1,3 +1,5 @@
+use quote::quote;
+
 use crate::{
     match_pat_guard::MatchPatGuard,
     model_types::{
@@ -39,16 +41,18 @@ where
 
 pub(crate) fn parse_variant(variant: &syn::Variant) -> PacketRsEnumVariant {
     let name = &variant.ident;
-    let parameters = parse_packetrs_attrs_from_attributes(&variant.attrs);
-    let mut fields = variant
+    let mut parameters = parse_packetrs_attrs_from_attributes(&variant.attrs);
+    let fields = variant
         .fields
         .iter()
         .map(parse_field)
         .collect::<Vec<PacketRsField>>();
 
-    //if let Some(discrimint) = variant.discriminant {
-    //    fields.push(PacketRsAttributeParam::EnumId(syn::LitStr::new(format!("{}", )))
-    //}
+    // If the variant has a discriminant value, use that as the id
+    if let Some((_, discriminant)) = &variant.discriminant {
+        let pat = syn::parse2::<syn::Pat>(quote! { #discriminant }).unwrap_or_else(|e| panic!("Unable to parse discriminant as syn::Pat: {}", e));
+        parameters.push(PacketRsAttributeParam::EnumId(MatchPatGuard { pat, guard: None } ));
+    }
 
     PacketRsEnumVariant {
         name,
