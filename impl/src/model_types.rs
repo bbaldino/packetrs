@@ -1,3 +1,5 @@
+use crate::match_pat_guard::MatchPatGuard;
+
 /// Model the different attributes
 #[derive(Debug, Clone)]
 pub(crate) enum PacketRsAttributeParam {
@@ -15,7 +17,7 @@ pub(crate) enum PacketRsAttributeParam {
     EnumKey(syn::Expr),
     // An ID of a specific enum variant that will be retrieved via the EnumKey.  Tagged on an enum
     // variant.
-    EnumId(syn::LitStr),
+    EnumId(MatchPatGuard),
     // A value that a given field must equal. (use Expr?)
     Fixed(syn::LitStr),
     // An expression that the field's value must pass
@@ -122,9 +124,9 @@ mod tests {
     #[test]
     fn test_name() {
         let params = vec![
-            PacketRsAttributeParam::EnumId(syn::parse_str::<syn::LitStr>("\"hello\"").unwrap()),
+            PacketRsAttributeParam::EnumId(syn::parse_str::<MatchPatGuard>("\"hello\"").unwrap()),
             PacketRsAttributeParam::Fixed(syn::parse_str::<syn::LitStr>("\"world\"").unwrap()),
-            PacketRsAttributeParam::EnumId(syn::parse_str::<syn::LitStr>("\"foo\"").unwrap()),
+            PacketRsAttributeParam::EnumId(syn::parse_str::<MatchPatGuard>("\"foo\"").unwrap()),
         ];
         let result = get_params!(params, EnumId);
         println!("found param: {:?}", result);

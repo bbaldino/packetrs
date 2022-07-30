@@ -1,4 +1,5 @@
 use crate::{
+    match_pat_guard::MatchPatGuard,
     model_types::{
         PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField, PacketRsStruct,
     },
@@ -39,11 +40,15 @@ where
 pub(crate) fn parse_variant(variant: &syn::Variant) -> PacketRsEnumVariant {
     let name = &variant.ident;
     let parameters = parse_packetrs_attrs_from_attributes(&variant.attrs);
-    let fields = variant
+    let mut fields = variant
         .fields
         .iter()
         .map(parse_field)
         .collect::<Vec<PacketRsField>>();
+
+    //if let Some(discrimint) = variant.discriminant {
+    //    fields.push(PacketRsAttributeParam::EnumId(syn::LitStr::new(format!("{}", )))
+    //}
 
     PacketRsEnumVariant {
         name,
@@ -111,7 +116,10 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
                 .unwrap_or_else(|e| panic!("Error parsing 'enum_key' value as expression: {}", e));
             Some(PacketRsAttributeParam::EnumKey(expr))
         }
-        "id" => Some(PacketRsAttributeParam::EnumId(value_str.clone())),
+        "id" => {
+            let id = syn::parse_str::<MatchPatGuard>(&value_str.value()).unwrap_or_else(|e| panic!("Error parsing 'id' value as MatchPatGuard: {}", e));
+            Some(PacketRsAttributeParam::EnumId(id))
+        },
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
         "assert" => {
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())

@@ -3,7 +3,6 @@ use quote::{format_ident, quote};
 
 use crate::{
     get_param,
-    match_pat_guard::MatchPatGuard,
     model_types::{
         are_fields_named, PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField,
         PacketRsStruct,
@@ -277,9 +276,7 @@ fn generate_match_arm(enum_name: &syn::Ident, variant: &PacketRsEnumVariant) -> 
     let variant_name = variant.name;
     let variant_name_str = variant_name.to_string();
     let key = get_param!(&variant.parameters, EnumId)
-        .unwrap_or_else(|| panic!("Enum variant {} is missing 'id' attribute", variant_name))
-        .value();
-    let key = syn::parse_str::<MatchPatGuard>(&key).expect("Unable to parse match pattern");
+        .unwrap_or_else(|| panic!("Enum variant {} is missing 'id' attribute", variant_name));
 
     let fields = if are_fields_named(&variant.fields) {
         variant.fields.clone()
