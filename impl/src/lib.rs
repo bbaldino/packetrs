@@ -2,21 +2,20 @@
 
 mod code_gen;
 pub mod error;
-mod match_pat_guard;
 mod model_parse;
 mod model_types;
 pub mod packetrs_read;
 mod syn_helpers;
+mod match_pat_guard;
 
 use code_gen::generate_enum;
 use model_parse::parse_enum;
 use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
-pub use self::byteorder;
-pub use self::ux::*;
 pub use ::anyhow::*;
 pub use ::bit_cursor::*;
+pub use self::ux;
 
 use crate::{code_gen::generate_struct, model_parse::parse_struct};
 
