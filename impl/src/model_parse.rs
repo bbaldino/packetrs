@@ -106,7 +106,11 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
                 .unwrap_or_else(|e| panic!("Error parsing 'required_ctx' value as fn args: {}", e));
             Some(PacketRsAttributeParam::RequiredContext(args))
         }
-        "key" => Some(PacketRsAttributeParam::EnumKey(value_str.clone())),
+        "key" => {
+            let expr = syn::parse_str::<syn::Expr>(&value_str.value())
+                .unwrap_or_else(|e| panic!("Error parsing 'enum_key' value as expression: {}", e));
+            Some(PacketRsAttributeParam::EnumKey(expr))
+        }
         "id" => Some(PacketRsAttributeParam::EnumId(value_str.clone())),
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
         "assert" => {

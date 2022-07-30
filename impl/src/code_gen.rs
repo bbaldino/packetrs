@@ -368,17 +368,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
         }
     } else {
         let enum_variant_key = get_param!(&packetrs_enum.parameters, EnumKey)
-            .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name))
-            .value();
-
-        // TODO: without this, we get quotes around the variant key in the match statement below.  is
-        // there a better way?
-        let enum_variant_key = syn::parse_str::<syn::Expr>(&enum_variant_key).unwrap_or_else(|e| {
-            panic!(
-                "Unable to parse enum key as an expression: {}: {}",
-                enum_variant_key, e
-            )
-        });
+            .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name));
 
         let match_arms = packetrs_enum
             .variants

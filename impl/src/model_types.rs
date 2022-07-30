@@ -12,7 +12,7 @@ pub(crate) enum PacketRsAttributeParam {
     // required to be passed to the read method of the annotated struct.
     RequiredContext(Vec<syn::FnArg>),
     // A value containing the key to which enum variants should be mapped.  Tagged on the enum.
-    EnumKey(syn::LitStr),
+    EnumKey(syn::Expr),
     // An ID of a specific enum variant that will be retrieved via the EnumKey.  Tagged on an enum
     // variant.
     EnumId(syn::LitStr),
@@ -98,6 +98,7 @@ macro_rules! get_param {
 /// Find all elements in $params that matches the given variant.  Will return
 /// a vector of the found inner values.  Only works with a variant with a single
 /// unnamed field.
+#[macro_export]
 macro_rules! get_params {
     ($params:ident, $variant:tt) => {
         $params
@@ -121,11 +122,11 @@ mod tests {
     #[test]
     fn test_name() {
         let params = vec![
-            PacketRsAttributeParam::EnumKey(syn::parse_str::<syn::LitStr>("\"hello\"").unwrap()),
+            PacketRsAttributeParam::EnumId(syn::parse_str::<syn::LitStr>("\"hello\"").unwrap()),
             PacketRsAttributeParam::Fixed(syn::parse_str::<syn::LitStr>("\"world\"").unwrap()),
-            PacketRsAttributeParam::EnumKey(syn::parse_str::<syn::LitStr>("\"foo\"").unwrap()),
+            PacketRsAttributeParam::EnumId(syn::parse_str::<syn::LitStr>("\"foo\"").unwrap()),
         ];
-        let result = get_params!(params, EnumKey);
+        let result = get_params!(params, EnumId);
         println!("found param: {:?}", result);
     }
 }
