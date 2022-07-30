@@ -3,6 +3,7 @@ use syn::Token;
 
 /// MatchPatGuard represents the tokens of a match arm excluding the body.  (syn only defines
 /// 'Arm', which includes an entire match arm).
+#[derive(Debug, Clone)]
 pub(crate) struct MatchPatGuard {
     pat: syn::Pat,
     guard: Option<(syn::token::If, Box<syn::Expr>)>,
