@@ -79,7 +79,7 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
     } else {
         let field_read_call = generate_read_call(field, &read_context);
         if is_collection(field_ty) {
-            // Must have a 'count' param
+            // Must have a 'count' or 'while' param
             if let Some(ref count_param_value) = get_param!(&field.parameters, Count) {
                 quote! {
                     (0u32..#count_param_value.into())
@@ -87,9 +87,24 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
                         .map(|r| r.map_err(|e| e.into()))
                         .collect::<::#crate_name::error::PacketRsResult<#field_ty>>()
                 }
+            } else if let Some(ref while_param_value) = get_param!(&field.parameters, While) {
+                // Note that, unlike the 'count' branch where we can collect directly into
+                // Result<Vec<inner_ty>>, here (because of the while loop) we need to create
+                // a Vec<Result<inner_ty>> and then convert it.
+                // TODO: Is there a way to do that directly with a 'while'-style condition?
+                let inner_type = get_ident_of_inner_type(field_ty).unwrap_or_else(|| panic!("Unable to get inner type of collection type: {:?}", field_ty));
+                quote! {
+                    (|| {
+                        let mut values = Vec::<::#crate_name::error::PacketRsResult<#inner_type>>::new();
+                        while #while_param_value {
+                            values.push(#field_read_call.map_err(|e| e.into()));
+                        }
+                        values.into_iter().collect::<::#crate_name::error::PacketRsResult<#field_ty>>()
+                    })()
+                }
             } else {
                 panic!(
-                    "Field {:?} is a collection: either a 'custom_reader' or a 'count' param is required",
+                    "Field {:?} is a collection: either a 'custom_reader', 'count', or 'while' param is required",
                     field_name
                 );
             }

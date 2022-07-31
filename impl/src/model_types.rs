@@ -24,6 +24,9 @@ pub(crate) enum PacketRsAttributeParam {
     Assert(syn::Expr),
     // An expression that defines when an optional field is present
     When(syn::Expr),
+    // An expression that denotes how may of a collection field should be read.  An alternative
+    // to 'count'.
+    While(syn::Expr),
     // An expression that should be used to assign to the field instead of reading it from the
     // buffer.
     ReadValue(syn::Expr),

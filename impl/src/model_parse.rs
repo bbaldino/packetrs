@@ -108,6 +108,12 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
                 .unwrap_or_else(|e| panic!("Unable to parse 'count' param as expression: {}", e));
             Some(PacketRsAttributeParam::Count(expr))
         }
+        "while" => {
+            let expr = value_str
+                .parse::<syn::Expr>()
+                .unwrap_or_else(|e| panic!("Unable to parse 'while' param as expression: {}", e));
+            Some(PacketRsAttributeParam::While(expr))
+        }
         "ctx" => {
             // We just grab the context value as one string here, because a custom delimiter on
             // which to split may have been passed, so we delay splitting until later when all
