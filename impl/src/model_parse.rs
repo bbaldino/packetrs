@@ -50,8 +50,12 @@ pub(crate) fn parse_variant(variant: &syn::Variant) -> PacketRsEnumVariant {
 
     // If the variant has a discriminant value, use that as the id
     if let Some((_, discriminant)) = &variant.discriminant {
-        let pat = syn::parse2::<syn::Pat>(quote! { #discriminant }).unwrap_or_else(|e| panic!("Unable to parse discriminant as syn::Pat: {}", e));
-        parameters.push(PacketRsAttributeParam::EnumId(MatchPatGuard { pat, guard: None } ));
+        let pat = syn::parse2::<syn::Pat>(quote! { #discriminant })
+            .unwrap_or_else(|e| panic!("Unable to parse discriminant as syn::Pat: {}", e));
+        parameters.push(PacketRsAttributeParam::EnumId(MatchPatGuard {
+            pat,
+            guard: None,
+        }));
     }
 
     PacketRsEnumVariant {
@@ -103,7 +107,7 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
                 .parse::<syn::Expr>()
                 .unwrap_or_else(|e| panic!("Unable to parse 'count' param as expression: {}", e));
             Some(PacketRsAttributeParam::Count(expr))
-        },
+        }
         "ctx" => {
             // We just grab the context value as one string here, because a custom delimiter on
             // which to split may have been passed, so we delay splitting until later when all
@@ -121,33 +125,33 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             Some(PacketRsAttributeParam::EnumKey(expr))
         }
         "id" => {
-            let id = syn::parse_str::<MatchPatGuard>(&value_str.value()).unwrap_or_else(|e| panic!("Error parsing 'id' value as MatchPatGuard: {}", e));
+            let id = syn::parse_str::<MatchPatGuard>(&value_str.value())
+                .unwrap_or_else(|e| panic!("Error parsing 'id' value as MatchPatGuard: {}", e));
             Some(PacketRsAttributeParam::EnumId(id))
-        },
+        }
         "fixed" => Some(PacketRsAttributeParam::Fixed(value_str.clone())),
         "assert" => {
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())
                 .unwrap_or_else(|e| panic!("Error parsing 'assert' value as expression: {}", e));
             Some(PacketRsAttributeParam::Assert(expr))
-        },
+        }
         "when" => {
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())
                 .unwrap_or_else(|e| panic!("Error parsing 'when' value as expression: {}", e));
             Some(PacketRsAttributeParam::When(expr))
-        },
+        }
         "read_value" => {
-            let expr = syn::parse_str::<syn::Expr>(&value_str.value())
-                .unwrap_or_else(|e| panic!("Error parsing 'read_value' value as expression: {}", e));
+            let expr = syn::parse_str::<syn::Expr>(&value_str.value()).unwrap_or_else(|e| {
+                panic!("Error parsing 'read_value' value as expression: {}", e)
+            });
             Some(PacketRsAttributeParam::ReadValue(expr))
-        },
+        }
         "reader" => {
             let reader_ident = syn::parse_str::<syn::Ident>(value_str.value().as_ref())
                 .unwrap_or_else(|e| panic!("Error parsing 'reader' param as a valid Ident: {}", e));
             Some(PacketRsAttributeParam::CustomReader(reader_ident))
-        },
-        "ctx_delim" => {
-            Some(PacketRsAttributeParam::CtxDelim(value_str.clone()))
         }
+        "ctx_delim" => Some(PacketRsAttributeParam::CtxDelim(value_str.clone())),
         _ => {
             // TODO: refactor this to use a spanned compiler error
             panic!("Unrecognized packetrs attribute param name: {:?}", name)
@@ -204,9 +208,7 @@ fn parse_packetrs_attrs(attr: &syn::Attribute) -> Vec<PacketRsAttributeParam> {
     attr_params
 }
 
-fn parse_packetrs_attrs_from_attributes(
-    attrs: &[syn::Attribute],
-) -> Vec<PacketRsAttributeParam> {
+fn parse_packetrs_attrs_from_attributes(attrs: &[syn::Attribute]) -> Vec<PacketRsAttributeParam> {
     if let Some(packetrs_attr) = get_attr("packetrs", attrs) {
         parse_packetrs_attrs(packetrs_attr)
     } else {

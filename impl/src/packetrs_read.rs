@@ -1,4 +1,4 @@
-use bit_cursor::{bitcursor::BitCursor, ux::*, bit_read::BitRead};
+use bit_cursor::{bit_read::BitRead, bitcursor::BitCursor, ux::*};
 
 use crate::error::PacketRsResult;
 
@@ -15,7 +15,6 @@ macro_rules! packetrs_read_builtin {
                 Ok(<$type as BitRead>::bit_read(buf)?)
             }
         }
-        
     };
 }
 

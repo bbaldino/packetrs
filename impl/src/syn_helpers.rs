@@ -18,7 +18,7 @@ pub(crate) fn parse_fn_args_from_lit_str(
 /// one is present.
 pub(crate) fn get_attr<'a>(
     attr_name: &str,
-    attrs: &'a[syn::Attribute],
+    attrs: &'a [syn::Attribute],
 ) -> Option<&'a syn::Attribute> {
     for attr in attrs {
         if let Ok(node) = attr.parse_meta() {
@@ -65,7 +65,7 @@ pub(crate) fn get_var_name_from_fn_arg(fn_arg: &syn::FnArg) -> Option<&syn::Iden
             } else {
                 None
             }
-        },
+        }
         _ => None,
     }
 }
@@ -87,20 +87,17 @@ fn get_type_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 pub(crate) fn get_ctx_type(
     expected_context: &Option<&Vec<syn::FnArg>>,
 ) -> syn::parse::Result<syn::Type> {
-    expected_context
-        .map_or(syn::parse2::<syn::Type>(quote! { () }), |fn_args| {
-            let type_vec = fn_args
-                .iter()
-                .map(get_var_type_from_fn_arg)
-                .collect::<Option<Vec<&syn::Type>>>()
-                // TODO: instead of unwrap, should map None to an syn::parse::Error and return it
-                .unwrap();
-            syn::parse2::<syn::Type>(
-                quote! {
-                    (#(#type_vec,)*)
-                }
-            )
+    expected_context.map_or(syn::parse2::<syn::Type>(quote! { () }), |fn_args| {
+        let type_vec = fn_args
+            .iter()
+            .map(get_var_type_from_fn_arg)
+            .collect::<Option<Vec<&syn::Type>>>()
+            // TODO: instead of unwrap, should map None to an syn::parse::Error and return it
+            .unwrap();
+        syn::parse2::<syn::Type>(quote! {
+            (#(#type_vec,)*)
         })
+    })
 }
 
 pub(crate) fn get_ident_of_inner_type(ty: &syn::Type) -> Option<&syn::Ident> {
@@ -165,7 +162,10 @@ mod tests {
         let result = get_ctx_type(&Some(&vec![fn_arg]));
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), syn::parse_str::<syn::Type>("(u32,)").unwrap());
+        assert_eq!(
+            result.unwrap(),
+            syn::parse_str::<syn::Type>("(u32,)").unwrap()
+        );
     }
 
     #[test]
@@ -175,7 +175,10 @@ mod tests {
         let result = get_ctx_type(&Some(&vec![fn_arg, fn_arg2]));
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), syn::parse_str::<syn::Type>("(u32,u8,)").unwrap());
+        assert_eq!(
+            result.unwrap(),
+            syn::parse_str::<syn::Type>("(u32,u8,)").unwrap()
+        );
     }
 
     #[test]
