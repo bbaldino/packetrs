@@ -1,9 +1,10 @@
 use packetrs::*;
+use packetrs::{bit_cursor::BitCursor, bit_vec::BitVec};
 
 static mut CUSTOM_METHOD_CALLED: bool = false;
 
 fn custom_reader(
-    _buf: &mut ::packetrs::bitcursor::BitCursor,
+    _buf: &mut BitCursor,
     _ctx: (),
 ) -> ::packetrs::error::PacketRsResult<MyEnum> {
     unsafe {
@@ -21,7 +22,7 @@ enum MyEnum {
 }
 
 fn main() {
-    let data: Vec<u8> = vec![];
+    let data = BitVec::new();
     let mut buf = BitCursor::new(data);
 
     let _ms = MyEnum::read(&mut buf, ());

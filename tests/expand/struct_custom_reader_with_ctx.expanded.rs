@@ -11,7 +11,7 @@ struct MyStruct {
 }
 impl ::packetrs::packetrs_read::PacketrsRead<(u8, u16)> for MyStruct {
     fn read(
-        buf: &mut ::packetrs::bitcursor::BitCursor,
+        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
         ctx: (u8, u16),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         let size: u8 = ctx.0;

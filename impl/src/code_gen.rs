@@ -279,7 +279,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
-            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read(buf: &mut ::#crate_name::bitvec::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #read_body
             }
@@ -400,7 +400,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
-            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read(buf: &mut ::#crate_name::bitvec::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #body
             }

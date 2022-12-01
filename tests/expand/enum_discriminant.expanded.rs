@@ -7,7 +7,7 @@ enum MyEnum {
 }
 impl ::packetrs::packetrs_read::PacketrsRead<()> for MyEnum {
     fn read(
-        buf: &mut ::packetrs::bitcursor::BitCursor,
+        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
         ctx: (),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         match 1 {

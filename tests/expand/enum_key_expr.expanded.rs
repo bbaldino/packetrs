@@ -10,7 +10,7 @@ enum MyEnum {
 }
 impl ::packetrs::packetrs_read::PacketrsRead<(u32, u32)> for MyEnum {
     fn read(
-        buf: &mut ::packetrs::bitcursor::BitCursor,
+        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
         ctx: (u32, u32),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         let left: u32 = ctx.0;
