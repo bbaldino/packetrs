@@ -13,6 +13,6 @@ pub mod anyhow {
 }
 
 pub use packetrs_impl::error;
+pub use packetrs_impl::packetrs_read;
 #[doc(inline)]
 pub use packetrs_macro::PacketrsRead;
-pub use packetrs_impl::packetrs_read;

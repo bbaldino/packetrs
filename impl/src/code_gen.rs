@@ -92,7 +92,12 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
                 // Result<Vec<inner_ty>>, here (because of the while loop) we need to create
                 // a Vec<Result<inner_ty>> and then convert it.
                 // TODO: Is there a way to do that directly with a 'while'-style condition?
-                let inner_type = get_ident_of_inner_type(field_ty).unwrap_or_else(|| panic!("Unable to get inner type of collection type: {:?}", field_ty));
+                let inner_type = get_ident_of_inner_type(field_ty).unwrap_or_else(|| {
+                    panic!(
+                        "Unable to get inner type of collection type: {:?}",
+                        field_ty
+                    )
+                });
                 quote! {
                     (|| {
                         let mut values = Vec::<::#crate_name::error::PacketRsResult<#inner_type>>::new();

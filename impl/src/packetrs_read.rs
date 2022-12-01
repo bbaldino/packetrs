@@ -1,4 +1,4 @@
-use bitvec::{bit_cursor::BitCursor, bit_read_exts::BitReadExts, ux::*, byte_order::NetworkOrder};
+use bitvec::{bit_cursor::BitCursor, bit_read_exts::BitReadExts, byte_order::NetworkOrder, ux::*};
 
 use crate::error::PacketRsResult;
 
