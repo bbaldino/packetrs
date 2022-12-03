@@ -31,7 +31,7 @@ fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> T
     let inner_type = get_ident_of_inner_type(field.ty)
         .unwrap_or_else(|| panic!("Unable to get ident of inner type from: {:#?}", &field.ty));
     quote! {
-        #inner_type::read(buf, (#(#read_context,)*))
+        #inner_type::read::<NetworkOrder>(buf, (#(#read_context,)*))
     }
 }
 
@@ -284,7 +284,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
-            fn read(buf: &mut ::#crate_name::bitvec::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b4::byte_order::ByteOrder>(buf: &mut ::#crate_name::b4::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #read_body
             }
@@ -405,7 +405,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
-            fn read(buf: &mut ::#crate_name::bitvec::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b4::byte_order::ByteOrder>(buf: &mut ::#crate_name::b4::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #body
             }

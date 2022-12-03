@@ -1,5 +1,7 @@
 pub use crate::{
-    anyhow::*, bitvec::bit_cursor::BitCursor, bitvec::bit_read::BitRead,
-    bitvec::bit_read_exts::BitReadExts, bitvec::bit_vec::BitVec, bitvec::bitvec, error,
+    anyhow::*, 
+    error,
     packetrs_read::PacketrsRead, ux::*, PacketrsRead,
 };
+
+pub use packetrs_impl::b4::{bitvec, bit_cursor::BitCursor, bit_read::BitRead, bit_read_exts::BitReadExts, bit_vec::BitVec, byte_order::*};
