@@ -32,6 +32,12 @@ macro_rules! packetrs_read_builtin_bo {
     };
 }
 
+impl PacketrsRead<()> for bool {
+    fn read<T: ByteOrder>(buf: &mut BitCursor, _: ()) -> PacketRsResult<Self> {
+        Ok(buf.read_bool()?)
+    }
+}
+
 packetrs_read_builtin!(u1);
 packetrs_read_builtin!(u2);
 packetrs_read_builtin!(u3);
