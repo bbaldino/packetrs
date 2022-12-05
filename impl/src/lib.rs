@@ -16,8 +16,8 @@ use syn::DeriveInput;
 use crate::{code_gen::generate_struct, model_parse::parse_struct};
 
 pub use ::anyhow;
-pub use b4;
-pub use b4::ux;
+pub use b3;
+pub use b3::ux;
 
 #[doc(hidden)]
 pub fn derive_packetrs_read(item: TokenStream) -> std::result::Result<TokenStream, syn::Error> {

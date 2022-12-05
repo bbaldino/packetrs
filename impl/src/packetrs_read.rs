@@ -1,4 +1,4 @@
-use b4::{bit_cursor::BitCursor, ux::*, bit_read_exts::BitReadExts, byte_order::ByteOrder};
+use b3::{bit_cursor::BitCursor, ux::*, bit_read_exts::BitReadExts, byte_order::ByteOrder};
 
 use crate::error::PacketRsResult;
 
@@ -53,6 +53,7 @@ packetrs_read_builtin_bo!(u12);
 packetrs_read_builtin_bo!(u13);
 packetrs_read_builtin_bo!(u14);
 packetrs_read_builtin_bo!(u15);
+packetrs_read_builtin_bo!(u16);
 packetrs_read_builtin_bo!(u17);
 packetrs_read_builtin_bo!(u18);
 packetrs_read_builtin_bo!(u19);
@@ -68,3 +69,4 @@ packetrs_read_builtin_bo!(u28);
 packetrs_read_builtin_bo!(u29);
 packetrs_read_builtin_bo!(u30);
 packetrs_read_builtin_bo!(u31);
+packetrs_read_builtin_bo!(u32);

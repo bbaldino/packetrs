@@ -284,7 +284,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
-            fn read<T: ::#crate_name::b4::byte_order::ByteOrder>(buf: &mut ::#crate_name::b4::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b3::byte_order::ByteOrder>(buf: &mut ::#crate_name::b3::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #read_body
             }
@@ -405,7 +405,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
-            fn read<T: ::#crate_name::b4::byte_order::ByteOrder>(buf: &mut ::#crate_name::b4::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b3::byte_order::ByteOrder>(buf: &mut ::#crate_name::b3::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #body
             }
