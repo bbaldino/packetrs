@@ -21,6 +21,7 @@ Say you wanted to parse a STUN header, which has the following layout:
 In Packetrs, you'd do:
 ```rust
 #[derive(Debug, PacketrsRead)]
+#[packetrs(byte_order = "network_order")]
 pub struct StunHeader {
     #[packetrs(fixed = "0")]
     pub reserved: u2,
@@ -37,12 +38,10 @@ pub struct StunHeader {
 Deriving `PacketrsRead` on a struct or enum generates an implementation of the `PacketrsRead` trait for that type:
 ```rust
 pub trait PacketRsRead<Ctx>: Sized {
-    fn read(buf: &mut BitCursor, ctx: Ctx) -> PacketRsResult<Self>;
+    fn read<T: ByteOrder>(buf: &mut BitCursor, ctx: Ctx) -> PacketRsResult<Self>;
 }
 ```
-
-TODO: link to BitCursor repo once it's up
-
+`BitCursor` allows easy reading of non-standard integer widths, and comes from the b3 repo [here](https://github.com/bbaldino/b3).
 
 #### PacketrsRead Attributes
 ##### Context & Required Context
