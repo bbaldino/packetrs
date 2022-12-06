@@ -5,8 +5,8 @@ enum MyEnum {
     One,
 }
 impl ::packetrs::packetrs_read::PacketrsRead<(u32,)> for MyEnum {
-    fn read(
-        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
+    fn read<T: ::packetrs::b3::byte_order::ByteOrder>(
+        buf: &mut ::packetrs::b3::bit_cursor::BitCursor,
         ctx: (u32,),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         let value: u32 = ctx.0;

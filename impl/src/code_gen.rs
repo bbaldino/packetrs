@@ -30,8 +30,19 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> TokenStream {
     let inner_type = get_ident_of_inner_type(field.ty)
         .unwrap_or_else(|| panic!("Unable to get ident of inner type from: {:#?}", &field.ty));
-    quote! {
-        #inner_type::read::<NetworkOrder>(buf, (#(#read_context,)*))
+
+    match get_param!(&field.parameters, ByteOrder).map_or("network_order".to_owned(), |f| f.value()).as_str() {
+        "big_endian" | "network_order" => {
+            quote! {
+                #inner_type::read::<NetworkOrder>(buf, (#(#read_context,)*))
+            }
+        },
+        "little_endian" => {
+            quote! {
+                #inner_type::read::<LittleEndian>(buf, (#(#read_context,)*))
+            }
+        },
+        p @ _ => panic!("Invalid byte order param: {}", p),
     }
 }
 
@@ -386,7 +397,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     } else {
         let enum_variant_key = get_param!(&packetrs_enum.parameters, EnumKey)
             .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name));
-
+        
         let match_arms = packetrs_enum
             .variants
             .iter()

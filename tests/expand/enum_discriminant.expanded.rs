@@ -6,8 +6,8 @@ enum MyEnum {
     Three = 3,
 }
 impl ::packetrs::packetrs_read::PacketrsRead<()> for MyEnum {
-    fn read(
-        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
+    fn read<T: ::packetrs::b3::byte_order::ByteOrder>(
+        buf: &mut ::packetrs::b3::bit_cursor::BitCursor,
         ctx: (),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         match 1 {

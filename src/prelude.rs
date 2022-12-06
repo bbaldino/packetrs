@@ -1,6 +1,6 @@
 pub use crate::{
     anyhow::*, 
-    error,
+    error::PacketRsResult,
     packetrs_read::PacketrsRead, ux::*, PacketrsRead,
 };
 

@@ -1,5 +1,4 @@
-use packetrs::*;
-use packetrs::{bit_cursor::BitCursor, bit_vec::BitVec};
+use packetrs::prelude::*;
 
 static mut CUSTOM_METHOD_CALLED: bool = false;
 
@@ -25,7 +24,7 @@ fn main() {
     let data = BitVec::new();
     let mut buf = BitCursor::new(data);
 
-    let _ms = MyEnum::read(&mut buf, ());
+    let _ms = MyEnum::read::<NetworkOrder>(&mut buf, ());
 
     unsafe {
         assert!(CUSTOM_METHOD_CALLED);

@@ -10,8 +10,8 @@ struct MyStruct {
     foo: u8,
 }
 impl ::packetrs::packetrs_read::PacketrsRead<()> for MyStruct {
-    fn read(
-        buf: &mut ::packetrs::bitvec::bit_cursor::BitCursor,
+    fn read<T: ::packetrs::b3::byte_order::ByteOrder>(
+        buf: &mut ::packetrs::b3::bit_cursor::BitCursor,
         ctx: (),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         custom_reader(buf, ()).context("custom_reader")
