@@ -22,6 +22,9 @@ pub(crate) enum PacketRsAttributeParam {
     Fixed(syn::LitStr),
     // An expression that the field's value must pass
     Assert(syn::Expr),
+    // A string that described which byte order should be used when reading/writing.  
+    // Supported values: "big_endian", "little_endian", "network_order"
+    ByteOrder(syn::LitStr),
     // An expression that defines when an optional field is present
     When(syn::Expr),
     // An expression that denotes how may of a collection field should be read.  An alternative
@@ -100,7 +103,7 @@ macro_rules! get_param {
     };
 }
 
-/// Find all elements in $params that matches the given variant.  Will return
+/// Find all elements in $params that match the given variant.  Will return
 /// a vector of the found inner values.  Only works with a variant with a single
 /// unnamed field.
 #[macro_export]

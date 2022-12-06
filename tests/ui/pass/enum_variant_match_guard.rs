@@ -1,4 +1,4 @@
-use packetrs::*;
+use packetrs::prelude::*;
 
 #[derive(PacketrsRead)]
 #[packetrs(required_ctx = "value: u32", key = "value")]

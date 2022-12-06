@@ -5,11 +5,16 @@ use crate::{
     model_types::{
         PacketRsAttributeParam, PacketRsEnum, PacketRsEnumVariant, PacketRsField, PacketRsStruct,
     },
-    syn_helpers::{get_attr, parse_fn_args_from_lit_str},
+    syn_helpers::{get_attr, parse_fn_args_from_lit_str}, get_param,
 };
 
-pub(crate) fn parse_field(field: &syn::Field) -> PacketRsField {
-    let parameters = parse_packetrs_attrs_from_attributes(&field.attrs);
+pub(crate) fn parse_field<'a, 'b>(field: &'a syn::Field, parent_params: &'b Vec<PacketRsAttributeParam>) -> PacketRsField<'a> {
+    let mut parameters = parse_packetrs_attrs_from_attributes(&field.attrs);
+    if let Some(parent_byte_order) = get_param!(&parent_params, ByteOrder) {
+        if let None = get_param!(&parameters, ByteOrder) {
+            parameters.push(PacketRsAttributeParam::ByteOrder(parent_byte_order.clone()));
+        };
+    };
     PacketRsField {
         name: field.ident.clone(),
         ty: &field.ty,
@@ -29,7 +34,9 @@ where
     let fields = struct_data
         .fields
         .iter()
-        .map(parse_field)
+        .map(|f| {
+            parse_field(f, &parameters)
+        })
         .collect::<Vec<PacketRsField>>();
 
     PacketRsStruct {
@@ -39,13 +46,21 @@ where
     }
 }
 
-pub(crate) fn parse_variant(variant: &syn::Variant) -> PacketRsEnumVariant {
+pub(crate) fn parse_variant<'a, 'b>(variant: &'a syn::Variant, parent_params: &'b Vec<PacketRsAttributeParam>) -> PacketRsEnumVariant<'a> {
     let name = &variant.ident;
     let mut parameters = parse_packetrs_attrs_from_attributes(&variant.attrs);
+    // Add an inherited 'ByteOrder' param if there is one and the variant hasn't overridden it
+    if let Some(parent_byte_order) = get_param!(&parent_params, ByteOrder) {
+        if let None = get_param!(&parameters, ByteOrder) {
+            parameters.push(PacketRsAttributeParam::ByteOrder(parent_byte_order.clone()));
+        };
+    };
     let fields = variant
         .fields
         .iter()
-        .map(parse_field)
+        .map(|f| {
+            parse_field(f, &parameters)
+        })
         .collect::<Vec<PacketRsField>>();
 
     // If the variant has a discriminant value, use that as the id
@@ -77,7 +92,9 @@ where
     let variants = enum_data
         .variants
         .iter()
-        .map(parse_variant)
+        .map(|f| {
+            parse_variant(f, &parameters)
+        })
         .collect::<Vec<PacketRsEnumVariant>>();
 
     PacketRsEnum {
@@ -140,6 +157,14 @@ fn parse_packetrs_namevalue_param(nv: &syn::MetaNameValue) -> Option<PacketRsAtt
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())
                 .unwrap_or_else(|e| panic!("Error parsing 'assert' value as expression: {}", e));
             Some(PacketRsAttributeParam::Assert(expr))
+        }
+        "byte_order" => {
+            match value_str.value().as_str() {
+                "big_endian" | "little_endian" | "network_order" => {
+                    Some(PacketRsAttributeParam::ByteOrder(value_str.clone()))
+                }
+                _ => panic!("Error: 'byte_order' parameter is invalid")
+            }
         }
         "when" => {
             let expr = syn::parse_str::<syn::Expr>(&value_str.value())

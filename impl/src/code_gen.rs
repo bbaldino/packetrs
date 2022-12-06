@@ -30,8 +30,19 @@ pub(crate) fn get_crate_name() -> syn::Ident {
 fn generate_read_call(field: &PacketRsField, read_context: &Vec<syn::Expr>) -> TokenStream {
     let inner_type = get_ident_of_inner_type(field.ty)
         .unwrap_or_else(|| panic!("Unable to get ident of inner type from: {:#?}", &field.ty));
-    quote! {
-        #inner_type::read(buf, (#(#read_context,)*))
+
+    match get_param!(&field.parameters, ByteOrder).map_or("network_order".to_owned(), |f| f.value()).as_str() {
+        "big_endian" | "network_order" => {
+            quote! {
+                #inner_type::read::<NetworkOrder>(buf, (#(#read_context,)*))
+            }
+        },
+        "little_endian" => {
+            quote! {
+                #inner_type::read::<LittleEndian>(buf, (#(#read_context,)*))
+            }
+        },
+        p @ _ => panic!("Invalid byte order param: {}", p),
     }
 }
 
@@ -92,7 +103,12 @@ fn generate_field_read(field: &PacketRsField) -> TokenStream {
                 // Result<Vec<inner_ty>>, here (because of the while loop) we need to create
                 // a Vec<Result<inner_ty>> and then convert it.
                 // TODO: Is there a way to do that directly with a 'while'-style condition?
-                let inner_type = get_ident_of_inner_type(field_ty).unwrap_or_else(|| panic!("Unable to get inner type of collection type: {:?}", field_ty));
+                let inner_type = get_ident_of_inner_type(field_ty).unwrap_or_else(|| {
+                    panic!(
+                        "Unable to get inner type of collection type: {:?}",
+                        field_ty
+                    )
+                });
                 quote! {
                     (|| {
                         let mut values = Vec::<::#crate_name::error::PacketRsResult<#inner_type>>::new();
@@ -279,7 +295,7 @@ pub(crate) fn generate_struct(packetrs_struct: &PacketRsStruct) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #struct_name {
-            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b3::byte_order::ByteOrder>(buf: &mut ::#crate_name::b3::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #read_body
             }
@@ -381,7 +397,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
     } else {
         let enum_variant_key = get_param!(&packetrs_enum.parameters, EnumKey)
             .unwrap_or_else(|| panic!("Enum {} is missing 'key' attribute", enum_name));
-
+        
         let match_arms = packetrs_enum
             .variants
             .iter()
@@ -400,7 +416,7 @@ pub(crate) fn generate_enum(packetrs_enum: &PacketRsEnum) -> TokenStream {
 
     quote! {
         impl ::#crate_name::packetrs_read::PacketrsRead<#ctx_type> for #enum_name {
-            fn read(buf: &mut ::#crate_name::bitcursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
+            fn read<T: ::#crate_name::b3::byte_order::ByteOrder>(buf: &mut ::#crate_name::b3::bit_cursor::BitCursor, ctx: #ctx_type) -> ::#crate_name::error::PacketRsResult<Self> {
                 #context_assignments
                 #body
             }

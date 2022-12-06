@@ -1,0 +1,7 @@
+error: proc-macro derive panicked
+ --> tests/ui/fail/invalid_byte_order_param.rs:3:10
+  |
+3 | #[derive(PacketrsRead)]
+  |          ^^^^^^^^^^^^
+  |
+  = help: message: Error: 'byte_order' parameter is invalid

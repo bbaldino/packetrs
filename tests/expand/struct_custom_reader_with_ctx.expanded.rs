@@ -10,8 +10,8 @@ struct MyStruct {
     foo: u8,
 }
 impl ::packetrs::packetrs_read::PacketrsRead<(u8, u16)> for MyStruct {
-    fn read(
-        buf: &mut ::packetrs::bitcursor::BitCursor,
+    fn read<T: ::packetrs::b3::byte_order::ByteOrder>(
+        buf: &mut ::packetrs::b3::bit_cursor::BitCursor,
         ctx: (u8, u16),
     ) -> ::packetrs::error::PacketRsResult<Self> {
         let size: u8 = ctx.0;

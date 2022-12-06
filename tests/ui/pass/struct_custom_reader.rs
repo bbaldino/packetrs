@@ -1,11 +1,11 @@
-use packetrs::*;
+use packetrs::prelude::*;
 
 static mut CUSTOM_METHOD_CALLED: bool = false;
 
 fn custom_reader(
-    _buf: &mut ::packetrs::bitcursor::BitCursor,
+    _buf: &mut BitCursor,
     _ctx: (),
-) -> ::packetrs::error::PacketRsResult<MyStruct> {
+) -> PacketRsResult<MyStruct> {
     unsafe {
         CUSTOM_METHOD_CALLED = true;
     }
@@ -22,9 +22,9 @@ struct MyStruct {
 
 fn main() {
     let data: Vec<u8> = vec![];
-    let mut buf = BitCursor::new(data);
+    let mut buf = BitCursor::from_vec(data);
 
-    let _ms = MyStruct::read(&mut buf, ());
+    let _ms = MyStruct::read::<NetworkOrder>(&mut buf, ());
 
     unsafe {
         assert!(CUSTOM_METHOD_CALLED);
